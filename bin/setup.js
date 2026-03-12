@@ -40,6 +40,15 @@ function getPipCmd() {
     }
 }
 
+function isDockerInstalled() {
+    try {
+        execSync('docker --version', { stdio: 'ignore' });
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function isDockerRunning() {
     try {
         execSync('docker info', { stdio: 'ignore' });
@@ -47,6 +56,45 @@ function isDockerRunning() {
     } catch {
         return false;
     }
+}
+
+function tryStartDocker() {
+    const platform = os.platform();
+    try {
+        if (platform === 'win32') {
+            const searchPaths = [
+                path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Docker', 'Docker', 'Docker Desktop.exe'),
+                path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Docker', 'Docker', 'Docker Desktop.exe'),
+            ];
+            let dockerPath = searchPaths.find(p => fs.existsSync(p));
+            if (!dockerPath) {
+                try {
+                    const wherePath = execSync('where docker', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim().split('\n')[0];
+                    const candidate = path.resolve(path.dirname(wherePath), '..', 'Docker Desktop.exe');
+                    if (fs.existsSync(candidate)) dockerPath = candidate;
+                } catch {}
+            }
+            if (dockerPath) {
+                execSync(`start "" "${dockerPath}"`, { stdio: 'ignore', shell: true });
+                return true;
+            }
+        } else if (platform === 'darwin') {
+            execSync('open -a Docker', { stdio: 'ignore' });
+            return true;
+        } else {
+            execSync('systemctl start docker', { stdio: 'ignore' });
+            return true;
+        }
+    } catch {}
+    return false;
+}
+
+async function waitForDocker(maxWaitSec = 30) {
+    for (let i = 0; i < maxWaitSec; i += 3) {
+        if (isDockerRunning()) return true;
+        await new Promise(r => setTimeout(r, 3000));
+    }
+    return false;
 }
 
 function copyRecursiveSync(src, dest) {
@@ -204,17 +252,38 @@ async function main() {
 
     /* ──────────── Docker / Searxng ──────────── */
     if (enableSearxng) {
-        if (isDockerRunning()) {
-            const dockerSpinner = ora({ text: 'Starting Searxng container...', color: 'blue' }).start();
-            try {
-                execSync('docker compose up -d', { cwd: installDir, stdio: 'pipe' });
-                dockerSpinner.succeed('Searxng is running.');
-            } catch {
-                dockerSpinner.warn('Could not start Searxng.');
-                clack.log.warning('Run "docker compose up -d" in the install folder manually.');
-            }
+        if (!isDockerInstalled()) {
+            clack.log.warning('Docker is not installed on this machine.');
+            clack.log.info('Install Docker from: https://docs.docker.com/get-docker/');
+            clack.log.info('After installing, run "docker compose up -d" in the install folder.');
         } else {
-            clack.log.warning('Docker is not running. Start Docker Desktop, then run "docker compose up -d".');
+            let dockerReady = isDockerRunning();
+
+            if (!dockerReady) {
+                const dockerBootSpinner = ora({ text: 'Docker not running. Attempting auto-start...', color: 'blue' }).start();
+                const started = tryStartDocker();
+                if (started) {
+                    dockerBootSpinner.text = 'Waiting for Docker daemon...';
+                    dockerReady = await waitForDocker(30);
+                }
+                if (dockerReady) {
+                    dockerBootSpinner.succeed('Docker is now running.');
+                } else {
+                    dockerBootSpinner.warn('Could not auto-start Docker.');
+                    clack.log.warning('Start Docker Desktop manually, then run "docker compose up -d".');
+                }
+            }
+
+            if (dockerReady) {
+                const dockerSpinner = ora({ text: 'Starting Searxng container...', color: 'blue' }).start();
+                try {
+                    execSync('docker compose up -d', { cwd: installDir, stdio: 'pipe' });
+                    dockerSpinner.succeed('Searxng is running.');
+                } catch {
+                    dockerSpinner.warn('Could not start Searxng.');
+                    clack.log.warning('Run "docker compose up -d" in the install folder manually.');
+                }
+            }
         }
     }
 
