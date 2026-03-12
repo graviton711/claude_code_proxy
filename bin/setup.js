@@ -1,124 +1,136 @@
 #!/usr/bin/env node
 
+/**
+ * Claude-to-iFlow Proxy Setup Wizard
+ * Premium interactive setup using @clack/prompts and ora.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const os = require('os');
-const readline = require('readline');
-
-// ANSI Colors for zero-dependency styling
-const _colors = {
-    cyan: '\x1b[36m',
-    yellow: '\x1b[33m',
-    green: '\x1b[32m',
-    red: '\x1b[31m',
-    magenta: '\x1b[35m',
-    white: '\x1b[37m',
-    gray: '\x1b[90m',
-    bold: '\x1b[1m',
-    dim: '\x1b[2m',
-    reset: '\x1b[0m'
-};
-
-// Safety proxy for colors to avoid 'undefined' in logs
-const colors = new Proxy(_colors, {
-    get: (target, prop) => target[prop] || ''
-});
 
 const pkgRoot = path.resolve(__dirname, '..');
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+function getPythonCmd() {
+    try {
+        execSync('python3 --version', { stdio: 'ignore' });
+        return 'python3';
+    } catch {
+        try {
+            execSync('python --version', { stdio: 'ignore' });
+            return 'python';
+        } catch {
+            return null;
+        }
+    }
+}
 
-const question = (query, defaultValue = '') => new Promise((resolve) => {
-    const displayDefault = defaultValue ? ` (${defaultValue})` : '';
-    rl.question(`${colors.white}${query}${colors.cyan}${displayDefault}: ${colors.reset}`, (answer) => {
-        resolve(answer.trim() || defaultValue);
-    });
-});
+function getPipCmd() {
+    try {
+        execSync('pip3 --version', { stdio: 'ignore' });
+        return 'pip3';
+    } catch {
+        try {
+            execSync('pip --version', { stdio: 'ignore' });
+            return 'pip';
+        } catch {
+            return null;
+        }
+    }
+}
 
-const confirm = (query, defaultYes = true) => new Promise((resolve) => {
-    const options = defaultYes ? '[Y/n]' : '[y/N]';
-    rl.question(`${colors.white}${query} ${colors.gray}${options}: ${colors.reset}`, (answer) => {
-        if (!answer) resolve(defaultYes);
-        else resolve(answer.toLowerCase().startsWith('y'));
-    });
-});
+function isDockerRunning() {
+    try {
+        execSync('docker info', { stdio: 'ignore' });
+        return true;
+    } catch {
+        return false;
+    }
+}
 
-const indent = '  ';
-
-function drawSetupHeader() {
-    const pkg = require(path.join(pkgRoot, 'package.json'));
-    const versionStr = `v${pkg.version} Orchestrator`;
-    const boxWidth = 42;
-    const padding = Math.max(0, boxWidth - versionStr.length);
-    const leftPad = ' '.repeat(Math.floor(padding / 2));
-    const rightPad = ' '.repeat(Math.ceil(padding / 2));
-
-    console.log(`\n${colors.magenta}${colors.bold}   ╭──────────────────────────────────────────╮${colors.reset}`);
-    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}                                          ${colors.magenta}${colors.bold}│${colors.reset}`);
-    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}       ${colors.white}${colors.bold}CLAUDE-TO-IFLOW PROXY SETUP${colors.reset}        ${colors.magenta}${colors.bold}│${colors.reset}`);
-    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}${leftPad}${colors.dim}${versionStr}${colors.reset}${rightPad}${colors.magenta}${colors.bold}│${colors.reset}`);
-    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}                                          ${colors.magenta}${colors.bold}│${colors.reset}`);
-    console.log(`${colors.magenta}${colors.bold}   ╰──────────────────────────────────────────╯${colors.reset}\n`);
-    console.log(`${colors.gray}${indent}This wizard will deploy and configure the iFlow proxy engine.\n${colors.reset}`);
+function copyRecursiveSync(src, dest) {
+    const stats = fs.statSync(src);
+    if (stats.isDirectory()) {
+        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+        fs.readdirSync(src).forEach(child => {
+            copyRecursiveSync(path.join(src, child), path.join(dest, child));
+        });
+    } else {
+        fs.copyFileSync(src, dest);
+    }
 }
 
 async function main() {
-    process.stdout.write(' Booting Setup Engine...\r');
-    
-    drawSetupHeader();
+    const clack = await import('@clack/prompts');
+    const { default: ora } = await import('ora');
+    const pc = require('picocolors');
 
-    // 1. Choose Installation Mode
-    console.log(`${colors.white}Where do you want to install the proxy?${colors.reset}`);
-    console.log(`  1) ${colors.cyan}Current folder${colors.reset} (${process.cwd()})`);
-    console.log(`  2) ${colors.cyan}Default folder${colors.reset} (${path.join(os.homedir(), 'claude-proxy')})`);
-    console.log(`  3) ${colors.cyan}Custom path${colors.reset}`);
+    const pkg = require(path.join(pkgRoot, 'package.json'));
+    const versionStr = `v${pkg.version}`;
 
-    const choice = await question('Select an option [1/2/3]', '2');
+    console.log('');
+    clack.intro(pc.magenta(pc.bold(`  CLAUDE-TO-IFLOW PROXY SETUP  ${pc.dim(versionStr)}  `)));
 
-    let installDirRaw = '';
-    if (choice === '1') {
-        installDirRaw = process.cwd();
-    } else if (choice === '3') {
-        installDirRaw = await question('Enter custom installation path');
-    } else {
-        installDirRaw = path.join(os.homedir(), 'claude-proxy');
+    /* ──────────── Environment Checks ──────────── */
+    const pythonCmd = getPythonCmd();
+    const pipCmd = getPipCmd();
+
+    if (!pythonCmd) {
+        clack.log.error(pc.red('Python 3.8+ is required but was not found.'));
+        clack.log.info('Install Python from https://python.org and ensure it is in your PATH.');
+        clack.outro(pc.red('Setup aborted.'));
+        process.exit(1);
     }
 
-    const installDir = path.resolve(installDirRaw.replace(/^~/, os.homedir()));
+    const pyVer = execSync(`${pythonCmd} --version`, { encoding: 'utf-8' }).trim();
+    clack.log.success(`${pyVer} ${pc.dim('detected')}`);
 
-    // 2. Deploy Files
-    console.log(`${colors.yellow}\n[FILES] Deploying files to ${installDir}...${colors.reset}`);
+    /* ──────────── Installation Location ──────────── */
+    const installChoice = await clack.select({
+        message: 'Where do you want to install the proxy?',
+        options: [
+            { value: 'cwd', label: `Current folder`, hint: process.cwd() },
+            { value: 'default', label: `Default folder`, hint: path.join(os.homedir(), 'claude-proxy') },
+            { value: 'custom', label: 'Custom path' },
+        ],
+    });
+
+    if (clack.isCancel(installChoice)) {
+        clack.cancel('Setup cancelled.');
+        process.exit(0);
+    }
+
+    let installDir;
+    if (installChoice === 'cwd') {
+        installDir = process.cwd();
+    } else if (installChoice === 'custom') {
+        const customPath = await clack.text({
+            message: 'Enter your custom installation path:',
+            validate: (val) => {
+                if (!val) return 'Path cannot be empty.';
+            },
+        });
+        if (clack.isCancel(customPath)) {
+            clack.cancel('Setup cancelled.');
+            process.exit(0);
+        }
+        installDir = path.resolve(customPath.replace(/^~/, os.homedir()));
+    } else {
+        installDir = path.join(os.homedir(), 'claude-proxy');
+    }
+
+    /* ──────────── Deploy Files ──────────── */
+    const deploySpinner = ora({ text: 'Deploying proxy files...', color: 'cyan' }).start();
+
     if (!fs.existsSync(installDir)) {
         fs.mkdirSync(installDir, { recursive: true });
     }
 
     const filesToCopy = [
-        'src',
-        'requirements.txt',
-        'pyproject.toml',
-        'uv.lock',
-        'start_proxy.py',
-        'start_proxy_utf8.ps1',
-        'docker-compose.yml',
-        'Dockerfile',
-        'README.md'
+        'src', 'requirements.txt', 'pyproject.toml', 'uv.lock',
+        'start_proxy.py', 'docker-compose.yml', 'Dockerfile', 'README.md'
     ];
-
-    function copyRecursiveSync(src, dest) {
-        const stats = fs.statSync(src);
-        if (stats.isDirectory()) {
-            if (!fs.existsSync(dest)) fs.mkdirSync(dest);
-            fs.readdirSync(src).forEach(child => {
-                copyRecursiveSync(path.join(src, child), path.join(dest, child));
-            });
-        } else {
-            fs.copyFileSync(src, dest);
-        }
-    }
 
     for (const file of filesToCopy) {
         const srcPath = path.join(pkgRoot, file);
@@ -127,154 +139,120 @@ async function main() {
             copyRecursiveSync(srcPath, destPath);
         }
     }
-    console.log(`${colors.green}[DONE] Files deployed.${colors.reset}`);
+    deploySpinner.succeed('Proxy files deployed.');
 
-    // 3. Configuration Wizard
-    console.log(`${colors.cyan}\n[CONFIG] Configuring your proxy...${colors.reset}`);
+    /* ──────────── Configuration ──────────── */
+    clack.log.step(pc.cyan('Configuring your proxy...'));
 
-    const OPENAI_API_KEY = await question('Enter your OpenAI-compatible API Key');
-    if (!OPENAI_API_KEY) {
-        console.log(`${colors.red}[ERROR] API Key is required. Exiting.${colors.reset}`);
-        process.exit(1);
-    }
+    const apiKey = await clack.text({
+        message: 'Enter your OpenAI-compatible API Key:',
+        validate: (val) => {
+            if (!val) return 'API Key is required.';
+        },
+    });
+    if (clack.isCancel(apiKey)) { clack.cancel('Setup cancelled.'); process.exit(0); }
 
-    const OPENAI_BASE_URL = await question('Enter the API Base URL', 'https://apis.iflow.cn/v1');
-    const MODEL = await question('Enter the Model name to use (e.g., kimi-k2-0905)', 'kimi-k2-0905');
-    const enableSearxng = await confirm('Do you want to enable Searxng (Google Search for Claude)?', true);
+    const baseUrl = await clack.text({
+        message: 'Enter the API Base URL:',
+        initialValue: 'https://apis.iflow.cn/v1',
+    });
+    if (clack.isCancel(baseUrl)) { clack.cancel('Setup cancelled.'); process.exit(0); }
 
-    // 4. Generate .env file
-    const envContent = `OPENAI_API_KEY=${OPENAI_API_KEY}
-OPENAI_BASE_URL=${OPENAI_BASE_URL}
-BIG_MODEL=${MODEL}
-MIDDLE_MODEL=${MODEL}
-SMALL_MODEL=${MODEL}
-MAX_TOKENS=8096
-REQUEST_TIMEOUT=600
-IMAGE_ROUTING_ENABLED=true
-IMAGE_ROUTING_MODE=handoff
-VISION_HANDOFF_MAX_TOKENS=1800
-LOG_LEVEL=INFO
-`;
+    const model = await clack.text({
+        message: 'Enter the Model name to use:',
+        initialValue: 'kimi-k2-0905',
+    });
+    if (clack.isCancel(model)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+
+    const enableSearxng = await clack.confirm({
+        message: 'Enable Searxng (Google Search for Claude)?',
+        initialValue: true,
+    });
+    if (clack.isCancel(enableSearxng)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+
+    /* ──────────── Write .env ──────────── */
+    const envContent = [
+        `OPENAI_API_KEY=${apiKey}`,
+        `OPENAI_BASE_URL=${baseUrl}`,
+        `BIG_MODEL=${model}`,
+        `MIDDLE_MODEL=${model}`,
+        `SMALL_MODEL=${model}`,
+        `MAX_TOKENS=8096`,
+        `REQUEST_TIMEOUT=600`,
+        `IMAGE_ROUTING_ENABLED=true`,
+        `IMAGE_ROUTING_MODE=handoff`,
+        `VISION_HANDOFF_MAX_TOKENS=1800`,
+        `LOG_LEVEL=INFO`,
+    ].join('\n') + '\n';
 
     fs.writeFileSync(path.join(installDir, '.env'), envContent);
-    console.log(`${colors.green}[DONE] .env file created.${colors.reset}`);
+    clack.log.success('.env file created.');
 
-    // 5. Install Python dependencies
-    console.log(`${colors.yellow}\n[DEPS] Installing Python dependencies...${colors.reset}`);
-    try {
-        execSync('pip install -r requirements.txt', { cwd: installDir, stdio: 'inherit' });
-        console.log(`${colors.green}[DONE] Python dependencies installed.${colors.reset}`);
-    } catch (error) {
-        console.log(`${colors.red}[WARN] Failed to install Python dependencies. Please run "pip install -r requirements.txt" manually later.${colors.reset}`);
+    /* ──────────── Install Python Dependencies ──────────── */
+    if (pipCmd) {
+        const pipSpinner = ora({ text: 'Installing Python dependencies...', color: 'yellow' }).start();
+        try {
+            execSync(`${pipCmd} install -r requirements.txt`, { cwd: installDir, stdio: 'pipe' });
+            pipSpinner.succeed('Python dependencies installed.');
+        } catch (err) {
+            pipSpinner.warn('Could not install Python dependencies.');
+            clack.log.warning(`Run "${pipCmd} install -r requirements.txt" manually.`);
+        }
+    } else {
+        clack.log.warning('pip not found. Install Python dependencies manually.');
     }
 
-    // 6. Docker / Searxng Setup
+    /* ──────────── Docker / Searxng ──────────── */
     if (enableSearxng) {
-        console.log(`${colors.yellow}\n[DOCKER] Setting up Searxng docker...${colors.reset}`);
-        try {
-            execSync('docker compose up -d', { cwd: installDir, stdio: 'inherit' });
-            console.log(`${colors.green}[DONE] Searxng is running.${colors.reset}`);
-        } catch (error) {
-            console.log(`${colors.red}[WARN] Could not start Docker. Make sure Docker Desktop is running then run "docker compose up -d" in the install folder.${colors.reset}`);
+        if (isDockerRunning()) {
+            const dockerSpinner = ora({ text: 'Starting Searxng container...', color: 'blue' }).start();
+            try {
+                execSync('docker compose up -d', { cwd: installDir, stdio: 'pipe' });
+                dockerSpinner.succeed('Searxng is running.');
+            } catch {
+                dockerSpinner.warn('Could not start Searxng.');
+                clack.log.warning('Run "docker compose up -d" in the install folder manually.');
+            }
+        } else {
+            clack.log.warning('Docker is not running. Start Docker Desktop, then run "docker compose up -d".');
         }
     }
 
-    // 7. Claude CLI Check
-    console.log(`${colors.yellow}\n[CLAUDE] Checking for Claude Code CLI...${colors.reset}`);
+    /* ──────────── Claude CLI Check ──────────── */
+    const claudeSpinner = ora({ text: 'Checking for Claude Code CLI...', color: 'cyan' }).start();
     try {
         execSync('claude --version', { stdio: 'ignore' });
-        console.log(`${colors.green}[DONE] Claude Code CLI already installed.${colors.reset}`);
-    } catch (error) {
-        const installClaude = await confirm('Claude Code CLI not found. Do you want to install it? (Requires npm -g)', true);
+        claudeSpinner.succeed('Claude Code CLI detected.');
+    } catch {
+        claudeSpinner.warn('Claude Code CLI not found.');
+        const installClaude = await clack.confirm({
+            message: 'Install Claude Code CLI globally? (npm install -g @anthropic-ai/claude-code)',
+            initialValue: true,
+        });
+        if (clack.isCancel(installClaude)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+
         if (installClaude) {
-            console.log(`${colors.yellow}[INSTALL] Installing @anthropic-ai/claude-code...${colors.reset}`);
+            const installSpinner = ora({ text: 'Installing Claude Code CLI...', color: 'green' }).start();
             try {
-                execSync('npm install -g @anthropic-ai/claude-code', { stdio: 'inherit' });
-                console.log(`${colors.green}[DONE] Claude Code CLI installed.${colors.reset}`);
-            } catch (err) {
-                console.log(`${colors.red}[ERROR] Failed to install. Run "npm install -g @anthropic-ai/claude-code" manually.${colors.reset}`);
+                execSync('npm install -g @anthropic-ai/claude-code', { stdio: 'pipe' });
+                installSpinner.succeed('Claude Code CLI installed.');
+            } catch {
+                installSpinner.fail('Failed to install Claude Code CLI.');
+                clack.log.error('Run "npm install -g @anthropic-ai/claude-code" manually.');
             }
         }
     }
 
-    console.log(`\n ${colors.cyan}${colors.bold}🏁 Setup Complete!${colors.reset}`);
-    console.log(`${indent}${colors.white}You can now use the proxy via ${colors.green}${colors.bold}claude-proxy${colors.reset} command.\n${colors.reset}`);
-    console.log(`${indent}${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
+    /* ──────────── Done ──────────── */
+    clack.note(
+        `Run ${pc.green(pc.bold('claude-proxy'))} to start.\nInstalled to: ${pc.dim(installDir)}`,
+        pc.green('Setup Complete')
+    );
 
-    rl.close();
-}
-
-function setupPowerShellProfile(installDir) {
-    try {
-        const profilePath = execSync('powershell -NoProfile -Command "$PROFILE"', { encoding: 'utf-8' }).trim();
-        if (!profilePath) throw new Error('Could not find PowerShell profile path.');
-
-        const profileDir = path.dirname(profilePath);
-        if (!fs.existsSync(profileDir)) {
-            fs.mkdirSync(profileDir, { recursive: true });
-        }
-
-        let currentProfile = '';
-        if (fs.existsSync(profilePath)) {
-            currentProfile = fs.readFileSync(profilePath, 'utf8');
-            const backupPath = `${profilePath}.bak-${Date.now()}`;
-            fs.writeFileSync(backupPath, currentProfile);
-            console.log(`${colors.gray}[BACKUP] Created profile backup at: ${backupPath}${colors.reset}`);
-        }
-
-        const escapedInstallDir = installDir.replace(/\\/g, '\\\\');
-        const startTag = '# --- Claude Code Proxy Configuration START ---';
-        const endTag = '# --- Claude Code Proxy Configuration END ---';
-
-        const injection = `
-${startTag}
-function Ensure-ClaudeProxy {
-    param([int]$Port = 8082, [int]$StartupDelayMs = 2500)
-    $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($listener) { return Get-Process -Id $listener.OwningProcess -ErrorAction SilentlyContinue }
-    $proxySrc = "${escapedInstallDir}"
-    $proxyScript = Join-Path $proxySrc 'start_proxy_utf8.ps1'
-    if (-not (Test-Path $proxyScript)) { Write-Error "Proxy script not found at $proxyScript"; return $null }
-    $proxyProc = Start-Process powershell -WindowStyle Hidden -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $proxyScript) -PassThru
-    Start-Sleep -Milliseconds $StartupDelayMs
-    return $proxyProc
-}
-
-function Start-Claude {
-    $env:ANTHROPIC_BASE_URL = 'http://localhost:8082'
-    $env:ANTHROPIC_API_KEY = 'any-value'
-    $proxyProc = Ensure-ClaudeProxy
-    $claudeCmd = Get-Command claude -CommandType ExternalScript, Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $claudeCmd) { Write-Error 'Cannot find Claude CLI executable on PATH.'; return }
-    try { & $claudeCmd.Source @args } finally {
-        $port = 8082
-        $l = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($l) { Stop-Process -Id $l.OwningProcess -Force -ErrorAction SilentlyContinue }
-        if ($proxyProc) { Stop-Process -Id $proxyProc.Id -Force -ErrorAction SilentlyContinue }
-    }
-}
-if (-not (Get-Alias claude -ErrorAction SilentlyContinue)) { Set-Alias claude Start-Claude -Force }
-${endTag}
-`;
-
-        let updatedProfile = '';
-        const regex = new RegExp(`${startTag}[\\s\\S]*?${endTag}`, 'g');
-
-        if (currentProfile.match(regex)) {
-            console.log(`${colors.cyan}[INFO] Existing configuration found. Updating paths...${colors.reset}`);
-            updatedProfile = currentProfile.replace(regex, injection.trim());
-        } else {
-            updatedProfile = currentProfile + '\n' + injection;
-        }
-
-        fs.writeFileSync(profilePath, updatedProfile.trim() + '\n');
-        console.log(`${colors.green}[DONE] PowerShell profile updated: ${profilePath}${colors.reset}`);
-    } catch (error) {
-        console.log(`${colors.red}[ERROR] Error updating PowerShell profile: ${error.message}${colors.reset}`);
-    }
+    clack.outro(pc.dim('Happy coding!'));
 }
 
 main().catch(err => {
-    console.error(`${colors.red}Unexpected error:${colors.reset}`, err);
-    rl.close();
+    console.error(err);
+    process.exit(1);
 });
