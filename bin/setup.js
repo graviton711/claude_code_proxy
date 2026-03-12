@@ -58,8 +58,8 @@ async function main() {
     console.log(`${colors.reset}`);
     
     console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}`);
-    console.log(`${colors.yellow}${colors.bold}   🚀 CLAUDE-TO-OPENAI PROXY SETUP${colors.reset}`);
-    console.log(`${colors.green}${colors.bold}   👤 Creator: Sơn${colors.reset}`);
+    console.log(`${colors.yellow}${colors.bold}   CLAUDE-TO-OPENAI PROXY SETUP${colors.reset}`);
+    console.log(`${colors.green}${colors.bold}   Creator: Sơn${colors.reset}`);
     console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}\n`);
     
     console.log(`${colors.gray}   This wizard will deploy and configure the proxy for your machine.\n${colors.reset}`);
@@ -84,7 +84,7 @@ async function main() {
     const installDir = path.resolve(installDirRaw.replace(/^~/, os.homedir()));
 
     // 2. Deploy Files
-    console.log(`${colors.yellow}\n📂 Deploying files to ${installDir}...${colors.reset}`);
+    console.log(`${colors.yellow}\n[FILES] Deploying files to ${installDir}...${colors.reset}`);
     if (!fs.existsSync(installDir)) {
         fs.mkdirSync(installDir, { recursive: true });
     }
@@ -117,14 +117,14 @@ async function main() {
             copyRecursiveSync(srcPath, destPath);
         }
     }
-    console.log(`${colors.green}✅ Files deployed.${colors.reset}`);
+    console.log(`${colors.green}[DONE] Files deployed.${colors.reset}`);
 
     // 3. Configuration Wizard
-    console.log(`${colors.cyan}\n⚙️  Configuring your proxy...${colors.reset}`);
+    console.log(`${colors.cyan}\n[CONFIG] Configuring your proxy...${colors.reset}`);
     
     const OPENAI_API_KEY = await question('Enter your OpenAI-compatible API Key');
     if (!OPENAI_API_KEY) {
-        console.log(`${colors.red}❌ API Key is required. Exiting.${colors.reset}`);
+        console.log(`${colors.red}[ERROR] API Key is required. Exiting.${colors.reset}`);
         process.exit(1);
     }
     
@@ -147,42 +147,42 @@ LOG_LEVEL=INFO
 `;
 
     fs.writeFileSync(path.join(installDir, '.env'), envContent);
-    console.log(`${colors.green}✅ .env file created.${colors.reset}`);
+    console.log(`${colors.green}[DONE] .env file created.${colors.reset}`);
 
     // 5. Install Python dependencies
     console.log(`${colors.yellow}\n📦 Installing Python dependencies...${colors.reset}`);
     try {
         execSync('pip install -r requirements.txt', { cwd: installDir, stdio: 'inherit' });
-        console.log(`${colors.green}✅ Python dependencies installed.${colors.reset}`);
+        console.log(`${colors.green}[DONE] Python dependencies installed.${colors.reset}`);
     } catch (error) {
-        console.log(`${colors.red}⚠️  Failed to install Python dependencies. Please run "pip install -r requirements.txt" manually later.${colors.reset}`);
+        console.log(`${colors.red}[WARN] Failed to install Python dependencies. Please run "pip install -r requirements.txt" manually later.${colors.reset}`);
     }
 
     // 6. Docker / Searxng Setup
     if (enableSearxng) {
-        console.log(`${colors.yellow}\n🐋 Setting up Searxng docker...${colors.reset}`);
+        console.log(`${colors.yellow}\n[DOCKER] Setting up Searxng docker...${colors.reset}`);
         try {
             execSync('docker compose up -d', { cwd: installDir, stdio: 'inherit' });
-            console.log(`${colors.green}✅ Searxng is running.${colors.reset}`);
+            console.log(`${colors.green}[DONE] Searxng is running.${colors.reset}`);
         } catch (error) {
-            console.log(`${colors.red}⚠️  Could not start Docker. Make sure Docker Desktop is running then run "docker compose up -d" in the install folder.${colors.reset}`);
+            console.log(`${colors.red}[WARN] Could not start Docker. Make sure Docker Desktop is running then run "docker compose up -d" in the install folder.${colors.reset}`);
         }
     }
 
     // 7. Claude CLI Check
-    console.log(`${colors.yellow}\n🤖 Checking for Claude Code CLI...${colors.reset}`);
+    console.log(`${colors.yellow}\n[CLAUDE] Checking for Claude Code CLI...${colors.reset}`);
     try {
         execSync('claude --version', { stdio: 'ignore' });
-        console.log(`${colors.green}✅ Claude Code CLI already installed.${colors.reset}`);
+        console.log(`${colors.green}[DONE] Claude Code CLI already installed.${colors.reset}`);
     } catch (error) {
         const installClaude = await confirm('Claude Code CLI not found. Do you want to install it? (Requires npm -g)', true);
         if (installClaude) {
             console.log(`${colors.yellow}📦 Installing @anthropic-ai/claude-code...${colors.reset}`);
             try {
                 execSync('npm install -g @anthropic-ai/claude-code', { stdio: 'inherit' });
-                console.log(`${colors.green}✅ Claude Code CLI installed.${colors.reset}`);
+                console.log(`${colors.green}[DONE] Claude Code CLI installed.${colors.reset}`);
             } catch (err) {
-                console.log(`${colors.red}❌ Failed to install. Run "npm install -g @anthropic-ai/claude-code" manually.${colors.reset}`);
+                console.log(`${colors.red}[ERROR] Failed to install. Run "npm install -g @anthropic-ai/claude-code" manually.${colors.reset}`);
             }
         }
     }
@@ -195,7 +195,7 @@ LOG_LEVEL=INFO
         }
     }
 
-    console.log(`${colors.cyan}${colors.bold}\n✨ Setup Complete! ✨${colors.reset}`);
+    console.log(`${colors.cyan}${colors.bold}\nSetup Complete!${colors.reset}`);
     console.log(`${colors.white}You can now use ${colors.green}${colors.bold}claude${colors.reset}${colors.white} command in your terminal.\n${colors.reset}`);
     console.log(`${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
     
@@ -266,9 +266,9 @@ ${endTag}
         }
 
         fs.writeFileSync(profilePath, updatedProfile.trim() + '\n');
-        console.log(`${colors.green}✅ PowerShell profile updated: ${profilePath}${colors.reset}`);
+        console.log(`${colors.green}[DONE] PowerShell profile updated: ${profilePath}${colors.reset}`);
     } catch (error) {
-        console.log(`${colors.red}❌ Error updating PowerShell profile: ${error.message}${colors.reset}`);
+        console.log(`${colors.red}[ERROR] Error updating PowerShell profile: ${error.message}${colors.reset}`);
     }
 }
 

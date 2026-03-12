@@ -53,8 +53,8 @@ def main():
         sys.exit(0)
 
     # Configuration summary
-    print("🚀 Claude-to-OpenAI API Proxy v1.0.0")
-    print(f"✅ Configuration loaded successfully")
+    print("Claude-to-OpenAI API Proxy v1.0.0")
+    print(f"Configuration loaded successfully")
     print(f"   OpenAI Base URL: {config.openai_base_url}")
     print(f"   Big Model (opus): {config.big_model}")
     print(f"   Middle Model (sonnet): {config.middle_model}")
@@ -72,6 +72,11 @@ def main():
     valid_levels = ['debug', 'info', 'warning', 'error', 'critical']
     if log_level not in valid_levels:
         log_level = 'info'
+
+    # Suppress noise from libraries even in DEBUG mode
+    import logging
+    for loud_lib in ["openai", "httpx", "httpcore"]:
+        logging.getLogger(loud_lib).setLevel(logging.WARNING)
 
     # Start server
     uvicorn.run(

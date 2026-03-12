@@ -22,6 +22,8 @@ class OpenAIClient:
         else:
             self.client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=timeout, default_headers=all_headers)
 
+        logger.info(f"OpenAI Client initialized with base_url: {base_url}, timeout: {timeout}s")
+
         self.active_requests: Dict[str, asyncio.Event] = {}
 
     async def create_chat_completion(self, request: Dict[str, Any], request_id: Optional[str] = None) -> Dict[str, Any]:
