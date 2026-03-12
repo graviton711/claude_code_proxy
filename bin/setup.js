@@ -233,9 +233,6 @@ async function main() {
         `LOG_LEVEL=INFO`,
     ].join('\n') + '\n';
 
-    fs.writeFileSync(path.join(installDir, '.env'), envContent);
-    clack.log.success('.env file created.');
-
     /* ──────────── Install Python Dependencies ──────────── */
     if (pipCmd) {
         const pipSpinner = ora({ text: 'Installing Python dependencies...', color: 'yellow' }).start();
@@ -315,6 +312,10 @@ async function main() {
             }
         }
     }
+
+    /* ──────────── Finalize Setup ──────────── */
+    fs.writeFileSync(path.join(installDir, '.env'), envContent);
+    clack.log.success('.env file created successfully.');
 
     /* ──────────── Save Global Install Location ──────────── */
     try {
