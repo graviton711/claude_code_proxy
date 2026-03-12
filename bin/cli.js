@@ -183,7 +183,7 @@ function runClaude(env) {
     return claude;
 }
 
-async function cleanup() {
+async function cleanup(silent = false) {
     const currentPid = await getPortPID(DEFAULT_PORT);
     if (currentPid) {
         try {
@@ -192,14 +192,56 @@ async function cleanup() {
             } else {
                 process.kill(parseInt(currentPid, 10), 'SIGTERM');
             }
-            success('Proxy shutdown complete.');
+            if (!silent) success('Proxy shutdown complete.');
         } catch {
             // Process already dead
         }
     }
 }
 
+async function handleUninstall() {
+    drawHeader('Claude-to-iFlow Uninstall', version);
+    const locFile = path.join(os.homedir(), '.claude-proxy-loc');
+    const installDir = getInstallDir();
+
+    await cleanup(true);
+
+    const ora = (await import('ora')).default;
+    const spinner = ora({
+        text: 'Wiping all traces...',
+        prefixText: ` ${pc.gray('│')}`,
+        color: 'red'
+    }).start();
+
+    try {
+        // Delete install directory if it exists and is not the package root
+        const pkgRoot = path.resolve(__dirname, '..');
+        if (installDir && fs.existsSync(installDir) && installDir !== pkgRoot) {
+            fs.rmSync(installDir, { recursive: true, force: true });
+        }
+
+        // Delete mapping file
+        if (fs.existsSync(locFile)) {
+            fs.unlinkSync(locFile);
+        }
+
+        spinner.succeed('Deep cleanup complete.');
+        log(pc.dim('The proxy files and configuration have been removed.'));
+        log(pc.dim('To finish, run: npm uninstall -g graviton711/claude_code_proxy'));
+    } catch (err) {
+        spinner.fail(`Cleanup failed: ${err.message}`);
+    }
+
+    drawFooter();
+    process.exit(0);
+}
+
 async function run() {
+    if (process.argv.includes('--uninstall')) {
+        await handleUninstall();
+        return;
+    }
+
     const installDir = getInstallDir();
 
     drawHeader('Claude-to-iFlow Orchestrator', version);
