@@ -13,7 +13,6 @@
     "pyproject.toml",
     "uv.lock",
     "start_proxy.py",
-
     "docker-compose.yml",
     "Dockerfile",
     "README.md"
@@ -38,13 +37,9 @@
   "homepage": "https://github.com/graviton711/claude_code_proxy#readme",
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "chalk": "^4.1.2",
-    "commander": "^14.0.3",
     "cross-spawn": "^7.0.6",
     "dotenv": "^17.3.1",
-    "fs-extra": "^11.3.4",
     "ora": "^9.3.0",
-    "picocolors": "^1.1.1",
-    "shelljs": "^0.10.0"
+    "picocolors": "^1.1.1"
   }
 }

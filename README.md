@@ -49,17 +49,20 @@ claude-proxy
 ```
 
 The automated workflow includes:
-1. **Selection**: Guides you through a one-time setup if `.env` (iFlow API Key, Model...) is missing.
-2. **Boot**: Automatically spins up the Python proxy optimized for iFlow.
-3. **Connect**: Launches the official Claude Code CLI with pre-configured environment variables.
-4. **Cleanup**: Gracefully shuts down the proxy and releases ports when you exit Claude.
+1. **Setup Wizard**: An interactive, premium CLI wizard (`@clack/prompts`) guides you through a one-time setup if it's your first run.
+2. **Global Config**: Saves your installation path to `~/.claude-proxy-loc`, allowing you to run `claude-proxy` flawlessly from *any* directory on your machine.
+3. **Docker Auto-Start**: Automatically detects and starts Docker Desktop (Windows/macOS) or the Docker daemon (Linux) if you choose to enable the Searxng container.
+4. **Boot**: Silently spins up the optimized Python proxy in the background, keeping your terminal clean.
+5. **Connect**: Launches the official Claude Code CLI with pre-configured environment variables.
+6. **Cleanup**: Gracefully shuts down the proxy and releases ports when you exit Claude.
 
 ## Key Features
 
 - **iFlow Optimized**: First-class support for `apis.iflow.cn`, including specialized handling for reasoning/thinking models.
-- **Premium UI**: Box-drawing aesthetics and color-coded logging inspired by high-end developer tools.
+- **Premium UI**: Box-drawing aesthetics, silent loading spinners (`ora`), and color-coded logging inspired by high-end developer tools.
+- **Global & Portable**: Run `claude-proxy` anywhere. The CLI automatically resolves your Python backend and `.env` location. 
+- **Docker Auto-Management**: Hands-free Docker daemon startup and Searxng container deployment.
 - **Non-Invasive**: Zero changes to your system `PATH` or Shell Profiles.
-- **Smart Lifecycle**: Fully managed proxy startup and shutdown synchronized with your Claude session.
 
 ---
 

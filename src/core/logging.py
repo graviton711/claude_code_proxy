@@ -1,10 +1,5 @@
 import logging
-from rich.logging import RichHandler
-from rich.console import Console
 from src.core.config import config
-
-# Initialize Rich Console
-console = Console()
 
 # Parse log level
 log_level = config.log_level.split()[0].upper()
@@ -20,16 +15,9 @@ class TruncateFilter(logging.Filter):
         return True
 
 # Logging Configuration
-# Use RichHandler for professional, colorized terminal output
-logging_handlers = [
-    RichHandler(
-        console=console,
-        rich_tracebacks=True,
-        markup=True,
-        show_time=True,
-        show_path=False
-    )
-]
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logging_handlers = [console_handler]
 
 # Add file handler for persistence
 try:
