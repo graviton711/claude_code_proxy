@@ -52,18 +52,50 @@ def main():
         print(f"  Claude sonnet/opus models -> {config.big_model}")
         sys.exit(0)
 
-    # Configuration summary
-    print("Claude-to-OpenAI API Proxy v1.0.0")
-    print(f"Configuration loaded successfully")
-    print(f"   OpenAI Base URL: {config.openai_base_url}")
-    print(f"   Big Model (opus): {config.big_model}")
-    print(f"   Middle Model (sonnet): {config.middle_model}")
-    print(f"   Small Model (haiku): {config.small_model}")
-    print(f"   Max Tokens Limit: {config.max_tokens_limit}")
-    print(f"   Request Timeout: {config.request_timeout}s")
-    print(f"   Server: {config.host}:{config.port}")
-    print(f"   Client API Key Validation: {'Enabled' if config.anthropic_api_key else 'Disabled'}")
-    print("")
+    # Premium Startup UI
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.table import Table
+        from rich import box
+        import pyfiglet
+        
+        console = Console()
+        
+        # ASCII Art Banner
+        banner_text = pyfiglet.figlet_format("CLAUDE PROXY", font="slant")
+        console.print(f"[bold cyan]{banner_text}[/bold cyan]")
+        
+        # Configuration Table
+        table = Table(title="System Configuration", box=box.ROUNDED, border_style="bright_blue")
+        table.add_column("Parameter", style="cyan")
+        table.add_column("Value", style="green")
+        
+        table.add_row("OpenAI Base URL", config.openai_base_url)
+        table.add_row("Big Model (opus)", config.big_model)
+        table.add_row("Middle Model (sonnet)", config.middle_model)
+        table.add_row("Small Model (haiku)", config.small_model)
+        table.add_row("Max Tokens Limit", str(config.max_tokens_limit))
+        table.add_row("Request Timeout", f"{config.request_timeout}s")
+        table.add_row("Stagger Delay", f"{config.iflow_stagger_delay}s")
+        table.add_row("Server Address", f"{config.host}:{config.port}")
+        table.add_row("Client Validation", "Enabled" if config.anthropic_api_key else "Disabled")
+        
+        console.print(Panel(table, title="[bold green]Ready to Proxy[/bold green]", expand=False))
+        console.print("")
+    except ImportError:
+        # Fallback to simple print if rich/pyfiglet not installed
+        print("Claude-to-OpenAI API Proxy v1.0.0")
+        print(f"Configuration loaded successfully")
+        print(f"   OpenAI Base URL: {config.openai_base_url}")
+        print(f"   Big Model (opus): {config.big_model}")
+        print(f"   Middle Model (sonnet): {config.middle_model}")
+        print(f"   Small Model (haiku): {config.small_model}")
+        print(f"   Max Tokens Limit: {config.max_tokens_limit}")
+        print(f"   Request Timeout: {config.request_timeout}s")
+        print(f"   Server: {config.host}:{config.port}")
+        print(f"   Client API Key Validation: {'Enabled' if config.anthropic_api_key else 'Disabled'}")
+        print("")
 
     # Parse log level - extract just the first word to handle comments
     log_level = config.log_level.split()[0].lower()

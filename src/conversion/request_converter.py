@@ -93,6 +93,17 @@ def convert_claude_to_openai(
     if claude_request.top_p is not None:
         openai_request["top_p"] = claude_request.top_p
 
+    # Convert Thinking to reasoning_effort for o1/o3 models
+    if claude_request.thinking and ("o1" in openai_model or "o3" in openai_model):
+        budget = getattr(claude_request.thinking, "budget_tokens", 0)
+        # Empirical mapping: low budget -> low effort, high -> high
+        if budget < 1000:
+            openai_request["reasoning_effort"] = "low"
+        elif budget < 4000:
+            openai_request["reasoning_effort"] = "medium"
+        else:
+            openai_request["reasoning_effort"] = "high"
+
     # Convert tools
     if claude_request.tools:
         openai_tools = []
@@ -179,6 +190,11 @@ def convert_claude_assistant_message(msg: ClaudeMessage) -> Dict[str, Any]:
     for block in msg.content:
         if block.type == Constants.CONTENT_TEXT:
             text_parts.append(block.text)
+        elif block.type == "thinking":
+            # For OpenAI, we can wrap thinking content in a special format or gpt-4o's reasoning effort
+            # but usually, we just preserve it as text with a marker or specialized block if provider supports it.
+            # Most providers expect thinking to be part of the assistant content or a separate field.
+            text_parts.append(f"<thinking>\n{block.text}\n</thinking>\n")
         elif block.type == Constants.CONTENT_TOOL_USE:
             tool_calls.append(
                 {

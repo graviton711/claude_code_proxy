@@ -25,6 +25,9 @@ class Config:
         self.request_timeout = int(os.environ.get("REQUEST_TIMEOUT", "90"))
         self.max_retries = int(os.environ.get("MAX_RETRIES", "2"))
         
+        # iFlow / Concurrency settings
+        self.iflow_stagger_delay = float(os.environ.get("IFLOW_STAGGER_DELAY", "0.5"))
+        
         # Model settings - BIG and SMALL models
         self.big_model = os.environ.get("BIG_MODEL", "gpt-4o")
         self.middle_model = os.environ.get("MIDDLE_MODEL", self.big_model)

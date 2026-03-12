@@ -21,6 +21,11 @@ def convert_openai_to_claude_response(
     # Build Claude content blocks
     content_blocks = []
 
+    # Add thinking/reasoning content if present (OpenAI o1/o3)
+    reasoning_content = message.get("reasoning_content")
+    if reasoning_content:
+        content_blocks.append({"type": "thinking", "thinking": reasoning_content, "signature": None})
+
     # Add text content
     text_content = message.get("content")
     if text_content is not None:
@@ -124,6 +129,13 @@ async def convert_openai_streaming_to_claude(
                     # Handle text delta
                     if delta and "content" in delta and delta["content"] is not None:
                         yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': text_block_index, 'delta': {'type': Constants.DELTA_TEXT, 'text': delta['content']}}, ensure_ascii=False)}\n\n"
+
+                    # Handle reasoning/thinking delta (OpenAI o1/o3)
+                    if delta and "reasoning_content" in delta and delta["reasoning_content"] is not None:
+                        # Anthropic uses index for multiple blocks. 
+                        # We might need a separate index for thinking if text and thinking are interleaved,
+                        # but usually thinking comes first.
+                        yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': text_block_index, 'delta': {'type': 'thinking_delta', 'thinking': delta['reasoning_content']}}, ensure_ascii=False)}\n\n"
 
                     # Handle tool call deltas with improved incremental processing
                     if "tool_calls" in delta:
@@ -275,6 +287,10 @@ async def convert_openai_streaming_to_claude_with_cancellation(
                     # Handle text delta
                     if delta and "content" in delta and delta["content"] is not None:
                         yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': text_block_index, 'delta': {'type': Constants.DELTA_TEXT, 'text': delta['content']}}, ensure_ascii=False)}\n\n"
+
+                    # Handle reasoning/thinking delta (OpenAI o1/o3)
+                    if delta and "reasoning_content" in delta and delta["reasoning_content"] is not None:
+                        yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': text_block_index, 'delta': {'type': 'thinking_delta', 'thinking': delta['reasoning_content']}}, ensure_ascii=False)}\n\n"
 
                     # Handle tool call deltas with improved incremental processing
                     if "tool_calls" in delta and delta["tool_calls"]:

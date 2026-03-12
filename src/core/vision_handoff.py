@@ -62,8 +62,9 @@ async def apply_vision_handoff(openai_request: dict, openai_client, config, logg
     For user messages that contain image_url content, call vision model first,
     then replace multimodal content with a text report for downstream non-vision model.
     """
-    routed = copy.deepcopy(openai_request)
-    messages = routed.get("messages") or []
+    routed = {k: v for k, v in openai_request.items() if k != "messages"}
+    messages = list(openai_request.get("messages") or [])
+    routed["messages"] = messages
 
     for idx, msg in enumerate(messages):
         if msg.get("role") != "user":
@@ -71,6 +72,8 @@ async def apply_vision_handoff(openai_request: dict, openai_client, config, logg
         if not _message_has_image(msg):
             continue
 
+        # Lazy deepcopy of the specific message being handled
+        msg = copy.deepcopy(msg)
         source_content = msg.get("content")
 
         vision_request = {

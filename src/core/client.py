@@ -25,8 +25,29 @@ class OpenAIClient:
         logger.info(f"OpenAI Client initialized with base_url: {base_url}, timeout: {timeout}s")
 
         self.active_requests: Dict[str, asyncio.Event] = {}
+        self._last_initiation_time = 0
+        self._initiation_lock = asyncio.Lock()
+
+    async def _wait_for_stagger(self):
+        """Ensure requests are initiated with a minimum delay to avoid 429/434 from iFlow."""
+        from src.core.config import config
+        import time
+        
+        async with self._initiation_lock:
+            current_time = time.time()
+            elapsed = current_time - self._last_initiation_time
+            delay = config.iflow_stagger_delay
+            
+            if elapsed < delay:
+                sleep_time = delay - elapsed
+                logger.debug(f"Staggering request initiation: sleeping for {sleep_time:.2f}s")
+                await asyncio.sleep(sleep_time)
+                self._last_initiation_time = time.time()
+            else:
+                self._last_initiation_time = current_time
 
     async def create_chat_completion(self, request: Dict[str, Any], request_id: Optional[str] = None) -> Dict[str, Any]:
+        await self._wait_for_stagger()
         if request_id:
             self.active_requests[request_id] = asyncio.Event()
         try:
@@ -62,6 +83,7 @@ class OpenAIClient:
                 del self.active_requests[request_id]
 
     async def create_chat_completion_stream(self, request: Dict[str, Any], request_id: Optional[str] = None) -> AsyncGenerator[str, None]:
+        await self._wait_for_stagger()
         if request_id:
             self.active_requests[request_id] = asyncio.Event()
         try:
@@ -69,7 +91,7 @@ class OpenAIClient:
             async with self.client.chat.completions.with_streaming_response.create(**request, stream=True) as response:
                 logger.debug(f"[{request_id}] RESPONSE STATUS: {response.status_code}")
                 async for line in response.iter_lines():
-                    logger.debug(f"[{request_id}] LINE: {repr(line[:80])}")
+                    # logger.debug(f"[{request_id}] LINE: {repr(line[:80])}")
                     if request_id and request_id in self.active_requests:
                         if self.active_requests[request_id].is_set():
                             raise HTTPException(status_code=499, detail="Request cancelled by client")
