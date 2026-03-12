@@ -41,8 +41,27 @@ const confirm = (query, defaultYes = true) => new Promise((resolve) => {
 });
 
 async function main() {
-    console.log(`${colors.cyan}${colors.bold}\n🚀 Welcome to Claude-to-OpenAI API Proxy All-in-One Setup!\n${colors.reset}`);
-    console.log(`${colors.gray}This wizard will deploy and configure the proxy on your machine.\n${colors.reset}`);
+    console.log(`${colors.cyan}${colors.bold}`);
+    console.log(`   ______ _                       __        `);
+    console.log(`  / ____/| |                     / /        `);
+    console.log(` / /     | |  ____ _ __  __  ___/ /  ___    `);
+    console.log(`| |      | | / __ \`/ / / / / __  /  / _ \\   `);
+    console.log(`| |____  | || (_| | /_/ / / /_/ /  /  __/   `);
+    console.log(` \\____/  |_| \\__,_|\\__,_/  \\__,_/   \\___/    `);
+    console.log(`       ____                            `);
+    console.log(`      / __ \\ _____ ____  _  __ __  __  `);
+    console.log(`     / /_/ // ___// __ \\ | |/_// / / /  `);
+    console.log(`    / ____// /   / /_/ /_>  < / /_/ /   `);
+    console.log(`   /_/    /_/    \\____//_/|_| \\__, /    `);
+    console.log(`                             /____/     `);
+    console.log(`${colors.reset}`);
+    
+    console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}`);
+    console.log(`${colors.yellow}${colors.bold}   🚀 CLAUDE-TO-OPENAI PROXY SETUP${colors.reset}`);
+    console.log(`${colors.green}${colors.bold}   👤 Creator: Sơn${colors.reset}`);
+    console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}\n`);
+    
+    console.log(`${colors.gray}   This wizard will deploy and configure the proxy for your machine.\n${colors.reset}`);
 
     // 1. Choose Installation Mode
     console.log(`${colors.white}Where do you want to install the proxy?${colors.reset}`);
