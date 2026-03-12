@@ -51,6 +51,25 @@ function drawFooter() {
     console.log('');
 }
 
+function isProcessRunning(pid) {
+    try {
+        process.kill(parseInt(pid, 10), 0);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function registerSession(installDir) {
+    const sessionsDir = path.join(installDir, 'sessions');
+    if (!fs.existsSync(sessionsDir)) {
+        fs.mkdirSync(sessionsDir, { recursive: true });
+    }
+    const sessionFile = path.join(sessionsDir, `${process.pid}.lock`);
+    fs.writeFileSync(sessionFile, String(Date.now()));
+    return sessionFile;
+}
+
 function getPortPID(port) {
     return new Promise((resolve) => {
         const cmd = os.platform() === 'win32'
@@ -183,19 +202,49 @@ function runClaude(env) {
     return claude;
 }
 
-async function cleanup(silent = false) {
-    const currentPid = await getPortPID(DEFAULT_PORT);
-    if (currentPid) {
-        try {
-            if (os.platform() === 'win32') {
-                execSync(`taskkill /F /T /PID ${currentPid}`, { stdio: 'ignore' });
-            } else {
-                process.kill(parseInt(currentPid, 10), 'SIGTERM');
+async function cleanup(installDir, silent = false) {
+    // 1. Remove our own session lock
+    const sessionFile = path.join(installDir, 'sessions', `${process.pid}.lock`);
+    if (fs.existsSync(sessionFile)) {
+        try { fs.unlinkSync(sessionFile); } catch {}
+    }
+
+    // 2. Scan for other active sessions
+    const sessionsDir = path.join(installDir, 'sessions');
+    let otherActiveSessions = 0;
+
+    if (fs.existsSync(sessionsDir)) {
+        const files = fs.readdirSync(sessionsDir);
+        for (const file of files) {
+            if (file.endsWith('.lock')) {
+                const pid = file.replace('.lock', '');
+                if (pid !== String(process.pid) && isProcessRunning(pid)) {
+                    otherActiveSessions++;
+                } else if (pid !== String(process.pid)) {
+                    // Cleanup stale lock files from crashed processes
+                    try { fs.unlinkSync(path.join(sessionsDir, file)); } catch {}
+                }
             }
-            if (!silent) success('Proxy shutdown complete.');
-        } catch {
-            // Process already dead
         }
+    }
+
+    // 3. Only shut down proxy if we are the last one
+    if (otherActiveSessions === 0) {
+        const currentPid = await getPortPID(DEFAULT_PORT);
+        if (currentPid) {
+            try {
+                if (os.platform() === 'win32') {
+                    execSync(`taskkill /F /T /PID ${currentPid}`, { stdio: 'ignore' });
+                } else {
+                    process.kill(parseInt(currentPid, 10), 'SIGTERM');
+                }
+                if (!silent) success('Proxy shutdown complete.');
+            } catch {
+                // Process already dead
+            }
+        }
+    } else {
+        if (!silent) log(pc.dim(`${otherActiveSessions} session(s) active, keeping proxy alive.`));
     }
 }
 
@@ -237,17 +286,18 @@ async function handleUninstall() {
 }
 
 async function run() {
+    const installDir = getInstallDir();
+
     if (process.argv.includes('--uninstall')) {
         await handleUninstall();
         return;
     }
 
-    const installDir = getInstallDir();
-
     drawHeader('Claude-to-iFlow Orchestrator', version);
 
     await ensureConfig(installDir);
     await startProxy(installDir);
+    registerSession(installDir);
 
     const env = {
         ...process.env,
@@ -258,7 +308,7 @@ async function run() {
     const claudeProc = runClaude(env);
 
     claudeProc.on('exit', async (code) => {
-        await cleanup();
+        await cleanup(installDir);
         drawFooter();
         process.exit(code || 0);
     });
@@ -268,13 +318,13 @@ async function run() {
         if (err.code === 'ENOENT') {
             log(pc.dim('Tip: Ensure "npm" and "npx" are in your PATH.'));
         }
-        await cleanup();
+        await cleanup(installDir);
         drawFooter();
         process.exit(1);
     });
 
     const handleExit = async () => {
-        await cleanup();
+        await cleanup(installDir);
         drawFooter();
         process.exit(0);
     };
