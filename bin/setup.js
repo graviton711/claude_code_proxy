@@ -219,10 +219,16 @@ async function main() {
     if (clack.isCancel(baseUrl)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
     const model = await clack.text({
-        message: 'Enter the Model name to use:',
+        message: 'Enter the Model name to use (Text):',
         initialValue: 'kimi-k2-0905',
     });
     if (clack.isCancel(model)) { clack.cancel('Setup cancelled.'); process.exit(1); }
+
+    const visionModel = await clack.text({
+        message: 'Enter the Vision Model name (Image Analysis):',
+        initialValue: 'qwen3-vl-plus',
+    });
+    if (clack.isCancel(visionModel)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
     const enableSearxng = await clack.confirm({
         message: 'Enable Searxng (Google Search for Claude)?',
@@ -237,7 +243,7 @@ async function main() {
         `BIG_MODEL=${model}`,
         `MIDDLE_MODEL=${model}`,
         `SMALL_MODEL=${model}`,
-        `VISION_MODEL=${model}`,
+        `VISION_MODEL=${visionModel}`,
         `MAX_TOKENS=8096`,
         `REQUEST_TIMEOUT=600`,
         `IMAGE_ROUTING_ENABLED=true`,
