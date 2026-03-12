@@ -10,6 +10,9 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const pkg = require('../package.json');
+const version = `v${pkg.version}`;
+
 // Colors & Styling
 const colors = {
     cyan: '\x1b[36m',
@@ -140,7 +143,7 @@ function runClaude() {
 async function run() {
     const installDir = getInstallDir();
     
-    drawHeader('Claude-to-iFlow Orchestrator', 'v1.0.2');
+    drawHeader('Claude-to-iFlow Orchestrator', version);
 
     await ensureConfig(installDir);
     const proxyPid = await startProxy(installDir);

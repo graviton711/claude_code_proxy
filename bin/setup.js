@@ -40,29 +40,29 @@ const confirm = (query, defaultYes = true) => new Promise((resolve) => {
     });
 });
 
+const indent = '  ';
+
+function drawSetupHeader() {
+    const pkg = require(path.join(pkgRoot, 'package.json'));
+    const versionStr = `v${pkg.version} Orchestrator`;
+    const boxWidth = 42;
+    const padding = Math.max(0, boxWidth - versionStr.length);
+    const leftPad = ' '.repeat(Math.floor(padding / 2));
+    const rightPad = ' '.repeat(Math.ceil(padding / 2));
+
+    console.log(`\n${colors.magenta}${colors.bold}   ╭──────────────────────────────────────────╮${colors.reset}`);
+    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}                                          ${colors.magenta}${colors.bold}│${colors.reset}`);
+    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}       ${colors.white}${colors.bold}CLAUDE-TO-IFLOW PROXY SETUP${colors.reset}        ${colors.magenta}${colors.bold}│${colors.reset}`);
+    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}${leftPad}${colors.dim}${versionStr}${colors.reset}${rightPad}${colors.magenta}${colors.bold}│${colors.reset}`);
+    console.log(`${colors.magenta}${colors.bold}   │${colors.reset}                                          ${colors.magenta}${colors.bold}│${colors.reset}`);
+    console.log(`${colors.magenta}${colors.bold}   ╰──────────────────────────────────────────╯${colors.reset}\n`);
+    console.log(`${colors.gray}${indent}This wizard will deploy and configure the iFlow proxy engine.\n${colors.reset}`);
+}
+
 async function main() {
-    process.stdout.write('Initializing setup wizard...\r');
-    console.log(`${colors.cyan}${colors.bold}`);
-    console.log(`   ______ _                       __        `);
-    console.log(`  / ____/| |                     / /        `);
-    console.log(` / /     | |  ____ _ __  __  ___/ /  ___    `);
-    console.log(`| |      | | / __ \`/ / / / / __  /  / _ \\   `);
-    console.log(`| |____  | || (_| | /_/ / / /_/ /  /  __/   `);
-    console.log(` \\____/  |_| \\__,_|\\__,_/  \\__,_/   \\___/    `);
-    console.log(`       ____                            `);
-    console.log(`      / __ \\ _____ ____  _  __ __  __  `);
-    console.log(`     / /_/ // ___// __ \\ | |/_// / / /  `);
-    console.log(`    / ____// /   / /_/ /_>  < / /_/ /   `);
-    console.log(`   /_/    /_/    \\____//_/|_| \\__, /    `);
-    console.log(`                             /____/     `);
-    console.log(`${colors.reset}`);
-
-    console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}`);
-    console.log(`${colors.yellow}${colors.bold}  CLAUDE-TO-IFLOW PROXY SETUP${colors.reset}`);
-    console.log(`${colors.green}${colors.bold}   Creator: Son${colors.reset}`);
-    console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}\n`);
-
-    console.log(`${colors.gray}   This wizard will deploy and configure the proxy for your machine.\n${colors.reset}`);
+    process.stdout.write(' Initializing Orchestrator...\r');
+    
+    drawSetupHeader();
 
     // 1. Choose Installation Mode
     console.log(`${colors.white}Where do you want to install the proxy?${colors.reset}`);
@@ -190,9 +190,9 @@ LOG_LEVEL=INFO
         }
     }
 
-    console.log(`${colors.cyan}${colors.bold}\nSetup Complete!${colors.reset}`);
-    console.log(`${colors.white}You can now use the proxy via ${colors.green}${colors.bold}claude-proxy${colors.reset} command.\n${colors.reset}`);
-    console.log(`${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
+    console.log(`\n ${colors.cyan}${colors.bold}🏁 Setup Complete!${colors.reset}`);
+    console.log(`${indent}${colors.white}You can now use the proxy via ${colors.green}${colors.bold}claude-proxy${colors.reset} command.\n${colors.reset}`);
+    console.log(`${indent}${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
 
     rl.close();
 }
