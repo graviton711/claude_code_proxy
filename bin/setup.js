@@ -312,6 +312,12 @@ async function main() {
         }
     }
 
+    /* ──────────── Save Global Install Location ──────────── */
+    try {
+        const locFile = path.join(os.homedir(), '.claude-proxy-loc');
+        fs.writeFileSync(locFile, installDir, 'utf-8');
+    } catch {}
+
     /* ──────────── Done ──────────── */
     clack.note(
         `Run ${pc.green(pc.bold('claude-proxy'))} to start.\nInstalled to: ${pc.dim(installDir)}`,

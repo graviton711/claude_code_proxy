@@ -70,6 +70,18 @@ function getPortPID(port) {
 }
 
 function getInstallDir() {
+    // 1. Check for a globally saved location file
+    const locFile = path.join(os.homedir(), '.claude-proxy-loc');
+    if (fs.existsSync(locFile)) {
+        try {
+            const savedPath = fs.readFileSync(locFile, 'utf-8').trim();
+            if (fs.existsSync(savedPath)) {
+                return savedPath;
+            }
+        } catch {}
+    }
+
+    // 2. Fallback to package root
     return path.resolve(__dirname, '..');
 }
 
