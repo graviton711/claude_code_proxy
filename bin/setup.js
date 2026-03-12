@@ -190,16 +190,8 @@ LOG_LEVEL=INFO
         }
     }
 
-    // 8. PowerShell Profile Integration
-    if (os.platform() === 'win32') {
-        const updateProfile = await confirm('Do you want to add the "claude" command to your PowerShell profile automatically?', true);
-        if (updateProfile) {
-            setupPowerShellProfile(installDir);
-        }
-    }
-
     console.log(`${colors.cyan}${colors.bold}\nSetup Complete!${colors.reset}`);
-    console.log(`${colors.white}You can now use ${colors.green}${colors.bold}claude${colors.reset}${colors.white} command in your terminal.\n${colors.reset}`);
+    console.log(`${colors.white}You can now use the proxy via ${colors.green}${colors.bold}claude-proxy${colors.reset} command.\n${colors.reset}`);
     console.log(`${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
 
     rl.close();
@@ -230,7 +222,7 @@ function setupPowerShellProfile(installDir) {
         const injection = `
 ${startTag}
 function Ensure-ClaudeProxy {
-    param([int]$Port = 8082, [int]$StartupDelayMs = 1800)
+    param([int]$Port = 8082, [int]$StartupDelayMs = 2500)
     $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($listener) { return Get-Process -Id $listener.OwningProcess -ErrorAction SilentlyContinue }
     $proxySrc = "${escapedInstallDir}"

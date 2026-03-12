@@ -19,37 +19,43 @@ Claude Code Proxy acts as a translation layer between the Anthropic Claude API f
 - Real-time Streaming: Fluid experience for both text and tool calls (incremental input_json_delta delivery).
 - Error Handling: Graceful conversion of non-SSE JSON errors into Claude-compatible events.
 
-## Installation
+### Global Installation (Standard NPM)
 
-The fastest way to install and configure the proxy is using npx directly from GitHub.
+You can install the tool globally to use it anywhere:
+
+**Option A: Install from GitHub**
+```bash
+npm install -g graviton711/claude_code_proxy
+```
+
+**Option B: Install from local source** (if you cloned the repo)
+```bash
+cd claude_code_proxy
+npm install -g .
+```
+
+### Run-on-the-fly (NPX)
+
+If you don't want to install it permanently, you can use `npx`:
 
 ```bash
 npx github:graviton711/claude_code_proxy
 ```
 
-*Note: Once published to npm, you will be able to use `npx @graviton711/claude-code-proxy`.*
-
-This command will start an interactive setup wizard that:
-1. Deploys necessary files to your target directory.
-2. Guides you through API key and model configuration.
-3. Sets up your .env file automatically.
-4. Optionally integrates a "claude" command into your PowerShell profile (Windows).
+*Note: Once published to the registry, you can use `npm install -g @graviton711/claude-code-proxy`.*
 
 ### Manual Installation
 
-If you prefer a manual setup:
+If you prefer manual setup:
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/graviton711/claude_code_proxy.git
    cd claude_code_proxy
    ```
-
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
-   ```
-
 3. Configure .env based on .env.example.
 
 ## Usage
