@@ -1,91 +1,97 @@
-```text
-   ______ _                       _        _____                             
-  / ____/| |                     | |      |  __ \                            
- | |     | |  __ _  _   _   ____ | |  ___ | |__) | _ __  ___ __  __ _   _  
- | |     | | / _` || | | | / _` || | / _ \|  ___/ | '__|/ _ \\ \/ /| | | | 
- | |____ | || (_| || |_| || (_| || ||  __/| |     | |  | (_) | >  < | |_| | 
-  \_____/|_| \__,_| \__,_| \__,_||_| \___||_|     |_|   \___/ /_/\_\ \__, | 
-                                                                      __/ | 
-                                                                     |___/  
-```
-
 # Claude Code Proxy (iFlow Specialized)
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/graviton711/claude_code_proxy.svg?style=social)](https://github.com/graviton711/claude_code_proxy/stargazers)
+[![iFlow Optimized](https://img.shields.io/badge/Optimization-iFlow.cn-cyan.svg)](#features)
 
-A high-performance bridge specifically optimized for **iFlow.cn**, empowering **Claude Code CLI** to interact seamlessly with iFlow's API while satisfying strict concurrency constraints.
+A high-performance bridge specifically optimized for iFlow.cn, enabling Claude Code CLI to work seamlessly with OpenAI-compatible APIs while bypassing strict concurrency and initialization constraints.
 
----
+## Overview
 
-## Key Features
+Claude Code Proxy acts as a translation layer between the Anthropic Claude API format used by the Claude Code CLI and OpenAI-compatible providers. It is specifically tuned for iFlow.cn to handle parallel initialization issues and thinking/reasoning model mapping.
 
-- **iFlow.cn Specialized**: Built-in **Staggered Initiation** delay (0.5s) specifically designed to prevent "Invalid apiKey" (434) and concurrency (429) errors from iFlow.cn.
-- **Thinking / Reasoning (o1/o3 support)**: Automatically maps Claude's `thinking` parameters to OpenAI's `reasoning_effort`.
-- **High Performance**: 
-  - **Lazy Deepcopy**: Optimized memory usage for massive vision/image requests.
-  - **Real-time Streaming**: Instant delivery of text and incremental tool call deltas.
-- **Docker Automation**: Integrated Windows PowerShell logic to automatically launch Docker Desktop before execution.
-- **Premium UI**: Rich terminal interface with ASCII banners and formatted tables for clear status monitoring.
+## Features
 
----
+- iFlow.cn Specialized Staggering: Built-in 0.5s delay between request starts to eliminate 434 (Invalid apiKey) and 429 (Rate limit) errors.
+- Thinking Support: Full integration for reasoning models (o1/o3), mapping Claude thinking blocks to OpenAI reasoning effort.
+- Multimodal Handling: Optimized Base64 image processing with Lazy Deepcopy for minimal memory overhead.
+- Real-time Streaming: Fluid experience for both text and tool calls (incremental input_json_delta delivery).
+- Error Handling: Graceful conversion of non-SSE JSON errors into Claude-compatible events.
 
-## Installation & Usage
+## Installation
 
-### Prerequisites
-- Python 3.12+
-- Docker Desktop (for full automation features)
+The fastest way to install and configure the proxy is using npx directly from GitHub.
 
-### Setup
 ```bash
-# Clone the repository
-git clone https://github.com/graviton711/claude_code_proxy.git
-cd claude_code_proxy
-
-# Install dependencies
-pip install -r requirements.txt
+npx github:graviton711/claude_code_proxy
 ```
 
-### Configuration
-Rename `.env.example` to `.env` and fill in your details:
-```ini
-OPENAI_API_KEY="sk-..."
-OPENAI_BASE_URL="https://api.openai.com/v1"
-BIG_MODEL="gpt-4o"
-SMALL_MODEL="gpt-4o-mini"
-```
+*Note: Once published to npm, you will be able to use `npx @graviton711/claude-code-proxy`.*
 
-### Execution
-1. **Start the Proxy**: `python src/main.py`
-2. **Launch Claude Code**:
+This command will start an interactive setup wizard that:
+1. Deploys necessary files to your target directory.
+2. Guides you through API key and model configuration.
+3. Sets up your .env file automatically.
+4. Optionally integrates a "claude" command into your PowerShell profile (Windows).
+
+### Manual Installation
+
+If you prefer a manual setup:
+
+1. Clone the repository:
    ```bash
-   ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=any-value claude
+   git clone https://github.com/graviton711/claude_code_proxy.git
+   cd claude_code_proxy
    ```
 
----
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 🛠️ Windows PowerShell Integration
-To make the experience truly seamless, follow our [QUICKSTART.md](QUICKSTART.md) to integrate the **Automated Start** script into your PowerShell profile. This enables:
-- **Auto-Docker check** (Starts Docker if it's off)
-- **One-command launch** (`claude` starts everything)
-- **Auto-shutdown** on exit
+3. Configure .env based on .env.example.
 
----
+## Usage
 
-## Environment Reference
+### 1. Start the Proxy
+
+If you used the npx installer on Windows, you can simply type `claude` in a new terminal.
+
+Otherwise, start the proxy server:
+```bash
+python start_proxy.py
+```
+
+### 2. Run Claude Code
+
+Configure the Base URL and run the CLI:
+
+Windows (PowerShell):
+```powershell
+$env:ANTHROPIC_BASE_URL="http://localhost:8082"; $env:ANTHROPIC_API_KEY="any"; npx @anthropic-ai/claude-code
+```
+
+Linux / macOS:
+```bash
+ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=any npx @anthropic-ai/claude-code
+```
+
+## Configuration
+
+The proxy is configured via environment variables or a .env file.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HOST` | `0.0.0.0` | Binding address |
-| `PORT` | `8082` | Listening port |
-| `IFLOW_STAGGER_DELAY`| `0.5` | Delay between request initiations |
-| `MAX_TOKENS_LIMIT` | `4096` | Output token cap |
-| `REQUEST_TIMEOUT` | `90` | API Timeout in seconds |
-
----
+| OPENAI_BASE_URL | https://api.openai.com/v1 | Set to https://apis.iflow.cn/v1 for iFlow |
+| OPENAI_API_KEY | None | Your backend API key |
+| ANTHROPIC_API_KEY | None | (Optional) Key for client-side validation |
+| IFLOW_STAGGER_DELAY | 0.5 | Delay in seconds between initialization |
+| MAX_TOKENS_LIMIT | 4096 | Output token safety cap |
+| REQUEST_TIMEOUT | 90 | API connection timeout |
 
 ## License
-Released under the **MIT License**. Feel free to use and contribute!
 
----
-*Developed for the AI Power User community.*
+MIT License. Free for all developers.
+
+Developed for the iFlow and Claude community.
