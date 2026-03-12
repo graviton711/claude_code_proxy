@@ -11,34 +11,32 @@
 
 # Claude Code Proxy (Production Ready)
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/badge/Docker-Automated-blue.svg)](#docker-automation)
-[![Thinking API](https://img.shields.io/badge/API-Thinking-orange.svg)](#thinking-and-reasoning)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![GitHub stars](https://img.shields.io/github/stars/graviton711/claude_code_proxy.svg?style=social)](https://github.com/graviton711/claude_code_proxy/stargazers)
 
 A high-performance bridge that empowers **Claude Code CLI** to interact with any **OpenAI-compatible API** provider. Seamlessly translate Claude's unique features into Universal AI capabilities.
 
 ---
 
-## 🔥 Key Features
+## Key Features
 
-- **🧠 Thinking / Reasoning (o1/o3 support)**: Automatically maps Claude's `thinking` parameters to OpenAI's `reasoning_effort`.
-- **🌐 iFlow.cn Optimized**: Built-in **Staggered Initiation** delay (0.5s) to satisfy iFlow's strict concurrency limits and prevent 429/434 errors.
-- **⚡ High Performance**: 
+- **Thinking / Reasoning (o1/o3 support)**: Automatically maps Claude's `thinking` parameters to OpenAI's `reasoning_effort`.
+- **iFlow.cn Optimized**: Built-in **Staggered Initiation** delay (0.5s) to satisfy iFlow's strict concurrency limits and prevent 429/434 errors.
+- **High Performance**: 
   - **Lazy Deepcopy**: Optimized memory usage for massive vision/image requests.
   - **Real-time Streaming**: Instant delivery of text and incremental tool call deltas.
-- **🐳 Docker Automation**: Integrated Windows PowerShell logic to automatically launch Docker Desktop before execution.
-- **🎨 Premium UI**: Rich terminal interface with ASCII banners and formatted tables for clear status monitoring.
+- **Docker Automation**: Integrated Windows PowerShell logic to automatically launch Docker Desktop before execution.
+- **Premium UI**: Rich terminal interface with ASCII banners and formatted tables for clear status monitoring.
 
 ---
 
-## 🚀 Installation & Usage
+## Installation & Usage
 
-### ⚙️ Prerequisites
-- Python 3.9+
+### Prerequisites
+- Python 3.12+
 - Docker Desktop (for full automation features)
 
-### 📦 Setup
+### Setup
 ```bash
 # Clone the repository
 git clone https://github.com/graviton711/claude_code_proxy.git
@@ -48,7 +46,7 @@ cd claude_code_proxy
 pip install -r requirements.txt
 ```
 
-### 🛠️ Configuration
+### Configuration
 Rename `.env.example` to `.env` and fill in your details:
 ```ini
 OPENAI_API_KEY="sk-..."
@@ -57,7 +55,7 @@ BIG_MODEL="gpt-4o"
 SMALL_MODEL="gpt-4o-mini"
 ```
 
-### 🎌 Execution
+### Execution
 1. **Start the Proxy**: `python src/main.py`
 2. **Launch Claude Code**:
    ```bash
@@ -74,7 +72,7 @@ To make the experience truly seamless, follow our [QUICKSTART.md](QUICKSTART.md)
 
 ---
 
-## 📊 Environment Reference
+## Environment Reference
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -86,8 +84,8 @@ To make the experience truly seamless, follow our [QUICKSTART.md](QUICKSTART.md)
 
 ---
 
-## 🛡️ License
+## License
 Released under the **MIT License**. Feel free to use and contribute!
 
 ---
-*Developed for the AI Power User community. 🚀*
+*Developed for the AI Power User community.*
