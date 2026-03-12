@@ -237,6 +237,7 @@ async function main() {
         `BIG_MODEL=${model}`,
         `MIDDLE_MODEL=${model}`,
         `SMALL_MODEL=${model}`,
+        `VISION_MODEL=${model}`,
         `MAX_TOKENS=8096`,
         `REQUEST_TIMEOUT=600`,
         `IMAGE_ROUTING_ENABLED=true`,
