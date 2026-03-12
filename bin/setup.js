@@ -92,10 +92,13 @@ async function main() {
     const filesToCopy = [
         'src',
         'requirements.txt',
+        'pyproject.toml',
+        'uv.lock',
         'start_proxy.py',
         'start_proxy_utf8.ps1',
         'docker-compose.yml',
-        'Dockerfile'
+        'Dockerfile',
+        'README.md'
     ];
 
     function copyRecursiveSync(src, dest) {

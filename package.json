@@ -1,5 +1,5 @@
 {
-  "name": "claude-code-proxy",
+  "name": "@graviton711/claude-code-proxy",
   "version": "1.0.0",
   "description": "A proxy server that enables **Claude Code** to work with OpenAI-compatible API providers. Convert Claude API requests to OpenAI API calls, allowing you to use various LLM providers through the Claude Code CLI.",
   "main": "index.js",
@@ -23,7 +23,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fuergaosi233/claude-code-proxy.git"
+    "url": "git+https://github.com/graviton711/claude_code_proxy.git"
   },
   "keywords": [],
   "author": "",
@@ -32,7 +32,7 @@
   "bugs": {
     "url": "https://github.com/fuergaosi233/claude-code-proxy/issues"
   },
-  "homepage": "https://github.com/fuergaosi233/claude-code-proxy#readme",
+  "homepage": "https://github.com/graviton711/claude_code_proxy#readme",
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^14.0.3",
