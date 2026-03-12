@@ -85,11 +85,17 @@ function getInstallDir() {
     return path.resolve(__dirname, '..');
 }
 
-async function ensureConfig(installDir) {
-    const envPath = path.join(process.cwd(), '.env');
-    const localEnvPath = path.join(installDir, '.env');
+function validateConfig(vars) {
+    // OPENAI_API_KEY is strictly required (backend will crash without it)
+    // BASE_URL and BIG_MODEL are required to ensure the proxy targets iFlow properly
+    const mandatoryKeys = ['OPENAI_API_KEY', 'OPENAI_BASE_URL', 'BIG_MODEL'];
+    return mandatoryKeys.every(key => vars[key] && vars[key].trim() !== '');
+}
 
-    if (!fs.existsSync(envPath) && !fs.existsSync(localEnvPath)) {
+async function ensureConfig(installDir) {
+    const envVars = loadEnvFile(installDir);
+
+    if (!validateConfig(envVars)) {
         try {
             execSync(`node "${path.join(installDir, 'bin', 'setup.js')}"`, { stdio: 'inherit' });
         } catch {
@@ -100,12 +106,8 @@ async function ensureConfig(installDir) {
 }
 
 function loadEnvFile(installDir) {
-    const candidates = [
-        path.join(process.cwd(), '.env'),
-        path.join(installDir, '.env'),
-    ];
-    const envFile = candidates.find(p => fs.existsSync(p));
-    if (!envFile) return {};
+    const envFile = path.join(installDir, '.env');
+    if (!fs.existsSync(envFile)) return {};
 
     const vars = {};
     const lines = fs.readFileSync(envFile, 'utf-8').split('\n');
