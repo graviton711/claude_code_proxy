@@ -1,34 +1,59 @@
 #!/usr/bin/env node
 
-const inquirer = require('inquirer');
-const chalk = require('chalk');
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const os = require('os');
+const readline = require('readline');
 
-// Current package directory (where the npx files are)
+// ANSI Colors for zero-dependency styling
+const colors = {
+    cyan: '\x1b[36m',
+    yellow: '\x1b[33m',
+    green: '\x1b[32m',
+    red: '\x1b[31m',
+    white: '\x1b[37m',
+    gray: '\x1b[90m',
+    bold: '\x1b[1m',
+    reset: '\x1b[0m'
+};
+
 const pkgRoot = path.resolve(__dirname, '..');
 
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+const question = (query, defaultValue = '') => new Promise((resolve) => {
+    const displayDefault = defaultValue ? ` (${defaultValue})` : '';
+    rl.question(`${colors.white}${query}${colors.cyan}${displayDefault}: ${colors.reset}`, (answer) => {
+        resolve(answer.trim() || defaultValue);
+    });
+});
+
+const confirm = (query, defaultYes = true) => new Promise((resolve) => {
+    const options = defaultYes ? '[Y/n]' : '[y/N]';
+    rl.question(`${colors.white}${query} ${colors.gray}${options}: ${colors.reset}`, (answer) => {
+        if (!answer) resolve(defaultYes);
+        else resolve(answer.toLowerCase().startsWith('y'));
+    });
+});
+
 async function main() {
-    console.log(chalk.cyan.bold('\n🚀 Welcome to Claude-to-OpenAI API Proxy All-in-One Setup!\n'));
-    console.log(chalk.gray('This wizard will deploy and configure the proxy on your machine.\n'));
+    console.log(`${colors.cyan}${colors.bold}\n🚀 Welcome to Claude-to-OpenAI API Proxy All-in-One Setup!\n${colors.reset}`);
+    console.log(`${colors.gray}This wizard will deploy and configure the proxy on your machine.\n${colors.reset}`);
 
     // 1. Ask for Installation Directory
-    const { installDirRaw } = await inquirer.default.prompt([
-        {
-            type: 'input',
-            name: 'installDirRaw',
-            message: 'Where do you want to install the proxy?',
-            default: path.join(os.homedir(), 'claude-proxy')
-        }
-    ]);
-
+    const defaultInstallDir = path.join(os.homedir(), 'claude-proxy');
+    const installDirRaw = await question('Where do you want to install the proxy?', defaultInstallDir);
     const installDir = path.resolve(installDirRaw.replace(/^~/, os.homedir()));
 
     // 2. Deploy Files
-    console.log(chalk.yellow(`\n📂 Deploying files to ${installDir}...`));
-    await fs.ensureDir(installDir);
+    console.log(`${colors.yellow}\n📂 Deploying files to ${installDir}...${colors.reset}`);
+    if (!fs.existsSync(installDir)) {
+        fs.mkdirSync(installDir, { recursive: true });
+    }
 
     const filesToCopy = [
         'src',
@@ -39,50 +64,46 @@ async function main() {
         'Dockerfile'
     ];
 
+    function copyRecursiveSync(src, dest) {
+        const stats = fs.statSync(src);
+        if (stats.isDirectory()) {
+            if (!fs.existsSync(dest)) fs.mkdirSync(dest);
+            fs.readdirSync(src).forEach(child => {
+                copyRecursiveSync(path.join(src, child), path.join(dest, child));
+            });
+        } else {
+            fs.copyFileSync(src, dest);
+        }
+    }
+
     for (const file of filesToCopy) {
         const srcPath = path.join(pkgRoot, file);
         const destPath = path.join(installDir, file);
-        if (await fs.exists(srcPath)) {
-            await fs.copy(srcPath, destPath);
+        if (fs.existsSync(srcPath)) {
+            copyRecursiveSync(srcPath, destPath);
         }
     }
-    console.log(chalk.green('✅ Files deployed.'));
+    console.log(`${colors.green}✅ Files deployed.${colors.reset}`);
 
     // 3. Configuration Wizard
-    console.log(chalk.cyan('\n⚙️  Configuring your proxy...'));
-    const answers = await inquirer.default.prompt([
-        {
-            type: 'input',
-            name: 'OPENAI_API_KEY',
-            message: 'Enter your OpenAI-compatible API Key:',
-            validate: input => input.length > 0 ? true : 'API Key cannot be empty.'
-        },
-        {
-            type: 'input',
-            name: 'OPENAI_BASE_URL',
-            message: 'Enter the API Base URL:',
-            default: 'https://apis.iflow.cn/v1'
-        },
-        {
-            type: 'input',
-            name: 'MODEL',
-            message: 'Enter the Model name to use (e.g., kimi-k2-0905, gpt-4o):',
-            default: 'kimi-k2-0905'
-        },
-        {
-            type: 'confirm',
-            name: 'enableSearxng',
-            message: 'Do you want to enable Searxng (Google Search for Claude)?',
-            default: true
-        }
-    ]);
+    console.log(`${colors.cyan}\n⚙️  Configuring your proxy...${colors.reset}`);
+    
+    const OPENAI_API_KEY = await question('Enter your OpenAI-compatible API Key');
+    if (!OPENAI_API_KEY) {
+        console.log(`${colors.red}❌ API Key is required. Exiting.${colors.reset}`);
+        process.exit(1);
+    }
+    
+    const OPENAI_BASE_URL = await question('Enter the API Base URL', 'https://apis.iflow.cn/v1');
+    const MODEL = await question('Enter the Model name to use (e.g., kimi-k2-0905)', 'kimi-k2-0905');
+    const enableSearxng = await confirm('Do you want to enable Searxng (Google Search for Claude)?', true);
 
-    // 4. Generate .env file in target directory
-    const envContent = `OPENAI_API_KEY=${answers.OPENAI_API_KEY}
-OPENAI_BASE_URL=${answers.OPENAI_BASE_URL}
-BIG_MODEL=${answers.MODEL}
-MIDDLE_MODEL=${answers.MODEL}
-SMALL_MODEL=${answers.MODEL}
+    // 4. Generate .env file
+    const envContent = `OPENAI_API_KEY=${OPENAI_API_KEY}
+OPENAI_BASE_URL=${OPENAI_BASE_URL}
+BIG_MODEL=${MODEL}
+MIDDLE_MODEL=${MODEL}
+SMALL_MODEL=${MODEL}
 MAX_TOKENS=8096
 REQUEST_TIMEOUT=600
 IMAGE_ROUTING_ENABLED=true
@@ -91,73 +112,60 @@ VISION_HANDOFF_MAX_TOKENS=1800
 LOG_LEVEL=INFO
 `;
 
-    await fs.writeFile(path.join(installDir, '.env'), envContent);
-    console.log(chalk.green('✅ .env file created.'));
+    fs.writeFileSync(path.join(installDir, '.env'), envContent);
+    console.log(`${colors.green}✅ .env file created.${colors.reset}`);
 
-    // 5. Install Python dependencies in target directory
-    console.log(chalk.yellow('\n📦 Installing Python dependencies...'));
+    // 5. Install Python dependencies
+    console.log(`${colors.yellow}\n📦 Installing Python dependencies...${colors.reset}`);
     try {
         execSync('pip install -r requirements.txt', { cwd: installDir, stdio: 'inherit' });
-        console.log(chalk.green('✅ Python dependencies installed.'));
+        console.log(`${colors.green}✅ Python dependencies installed.${colors.reset}`);
     } catch (error) {
-        console.log(chalk.red('⚠️  Failed to install Python dependencies. Please run "pip install -r requirements.txt" manually later.'));
+        console.log(`${colors.red}⚠️  Failed to install Python dependencies. Please run "pip install -r requirements.txt" manually later.${colors.reset}`);
     }
 
     // 6. Docker / Searxng Setup
-    if (answers.enableSearxng) {
-        console.log(chalk.yellow('\n🐋 Setting up Searxng docker...'));
+    if (enableSearxng) {
+        console.log(`${colors.yellow}\n🐋 Setting up Searxng docker...${colors.reset}`);
         try {
             execSync('docker compose up -d', { cwd: installDir, stdio: 'inherit' });
-            console.log(chalk.green('✅ Searxng is running.'));
+            console.log(`${colors.green}✅ Searxng is running.${colors.reset}`);
         } catch (error) {
-            console.log(chalk.red('⚠️  Could not start Docker. Make sure Docker Desktop is running then run "docker compose up -d" in the install folder.'));
+            console.log(`${colors.red}⚠️  Could not start Docker. Make sure Docker Desktop is running then run "docker compose up -d" in the install folder.${colors.reset}`);
         }
     }
 
-    // 7. Check for Claude CLI
-    console.log(chalk.yellow('\n🤖 Checking for Claude Code CLI...'));
+    // 7. Claude CLI Check
+    console.log(`${colors.yellow}\n🤖 Checking for Claude Code CLI...${colors.reset}`);
     try {
         execSync('claude --version', { stdio: 'ignore' });
-        console.log(chalk.green('✅ Claude Code CLI already installed.'));
+        console.log(`${colors.green}✅ Claude Code CLI already installed.${colors.reset}`);
     } catch (error) {
-        const { installClaude } = await inquirer.default.prompt([
-            {
-                type: 'confirm',
-                name: 'installClaude',
-                message: 'Claude Code CLI not found. Do you want to install it? (Requires npm -g)',
-                default: true
-            }
-        ]);
+        const installClaude = await confirm('Claude Code CLI not found. Do you want to install it? (Requires npm -g)', true);
         if (installClaude) {
-            console.log(chalk.yellow('📦 Installing @anthropic-ai/claude-code...'));
+            console.log(`${colors.yellow}📦 Installing @anthropic-ai/claude-code...${colors.reset}`);
             try {
                 execSync('npm install -g @anthropic-ai/claude-code', { stdio: 'inherit' });
-                console.log(chalk.green('✅ Claude Code CLI installed.'));
+                console.log(`${colors.green}✅ Claude Code CLI installed.${colors.reset}`);
             } catch (err) {
-                console.log(chalk.red('❌ Failed to install Claude CLI. Please run "npm install -g @anthropic-ai/claude-code" manually.'));
+                console.log(`${colors.red}❌ Failed to install. Run "npm install -g @anthropic-ai/claude-code" manually.${colors.reset}`);
             }
         }
     }
 
-    // 8. PowerShell Profile Integration (Windows only)
+    // 8. PowerShell Profile Integration
     if (os.platform() === 'win32') {
-        const { updateProfile } = await inquirer.default.prompt([
-            {
-                type: 'confirm',
-                name: 'updateProfile',
-                message: 'Do you want to add the "claude" command to your PowerShell profile automatically?',
-                default: true
-            }
-        ]);
-
+        const updateProfile = await confirm('Do you want to add the "claude" command to your PowerShell profile automatically?', true);
         if (updateProfile) {
             setupPowerShellProfile(installDir);
         }
     }
 
-    console.log(chalk.cyan.bold('\n✨ Setup Complete! ✨'));
-    console.log(chalk.white('You can now use ') + chalk.green.bold('claude') + chalk.white(' command in your terminal.\n'));
-    console.log(chalk.gray(`Target installation folder: ${installDir}\n`));
+    console.log(`${colors.cyan}${colors.bold}\n✨ Setup Complete! ✨${colors.reset}`);
+    console.log(`${colors.white}You can now use ${colors.green}${colors.bold}claude${colors.reset}${colors.white} command in your terminal.\n${colors.reset}`);
+    console.log(`${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
+    
+    rl.close();
 }
 
 function setupPowerShellProfile(installDir) {
@@ -173,10 +181,9 @@ function setupPowerShellProfile(installDir) {
         let currentProfile = '';
         if (fs.existsSync(profilePath)) {
             currentProfile = fs.readFileSync(profilePath, 'utf8');
-            // Create backup
             const backupPath = `${profilePath}.bak-${Date.now()}`;
             fs.writeFileSync(backupPath, currentProfile);
-            console.log(chalk.gray(`📦 Created profile backup at: ${backupPath}`));
+            console.log(`${colors.gray}📦 Created profile backup at: ${backupPath}${colors.reset}`);
         }
 
         const escapedInstallDir = installDir.replace(/\\/g, '\\\\');
@@ -218,20 +225,20 @@ ${endTag}
         const regex = new RegExp(`${startTag}[\\s\\S]*?${endTag}`, 'g');
         
         if (currentProfile.match(regex)) {
-            console.log(chalk.blue('ℹ️  Existing configuration found. Updating with new paths...'));
+            console.log(`${colors.cyan}ℹ️  Existing configuration found. Updating paths...${colors.reset}`);
             updatedProfile = currentProfile.replace(regex, injection.trim());
         } else {
             updatedProfile = currentProfile + '\n' + injection;
         }
 
         fs.writeFileSync(profilePath, updatedProfile.trim() + '\n');
-        console.log(chalk.green(`✅ PowerShell profile updated at: ${profilePath}`));
-        console.log(chalk.green(`✅ PowerShell profile updated at: ${profilePath}`));
+        console.log(`${colors.green}✅ PowerShell profile updated: ${profilePath}${colors.reset}`);
     } catch (error) {
-        console.log(chalk.red(`❌ Error updating PowerShell profile: ${error.message}`));
+        console.log(`${colors.red}❌ Error updating PowerShell profile: ${error.message}${colors.reset}`);
     }
 }
 
 main().catch(err => {
-    console.error(chalk.red('Unexpected error:'), err);
+    console.error(`${colors.red}Unexpected error:${colors.reset}`, err);
+    rl.close();
 });
