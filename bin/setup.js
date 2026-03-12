@@ -184,9 +184,20 @@ async function main() {
         const srcPath = path.join(pkgRoot, file);
         const destPath = path.join(installDir, file);
         if (fs.existsSync(srcPath)) {
+            // If the destination is a directory but should be a file (e.g. .env bug), delete it
+            if (fs.existsSync(destPath) && fs.get && fs.lstatSync(destPath).isDirectory() && !file.includes('/') && file !== 'src') {
+               // Special handling for .env later, but general safety check
+            }
             copyRecursiveSync(srcPath, destPath);
         }
     }
+
+    // Explicit cleanup for .env directory bug
+    const envPath = path.join(installDir, '.env');
+    if (fs.existsSync(envPath) && fs.lstatSync(envPath).isDirectory()) {
+        fs.rmSync(envPath, { recursive: true, force: true });
+    }
+
     deploySpinner.succeed('Proxy files deployed.');
 
     /* ──────────── Configuration ──────────── */
@@ -232,6 +243,15 @@ async function main() {
         `VISION_HANDOFF_MAX_TOKENS=1800`,
         `LOG_LEVEL=INFO`,
     ].join('\n') + '\n';
+
+    // Explicit cleanup for .env directory bug before writing file
+    if (fs.existsSync(envPath) && fs.lstatSync(envPath).isDirectory()) {
+        fs.rmSync(envPath, { recursive: true, force: true });
+    }
+
+    // Write .env EARLY to prevent Docker from creating a directory
+    fs.writeFileSync(envPath, envContent);
+    clack.log.success('.env file created.');
 
     /* ──────────── Install Python Dependencies ──────────── */
     if (pipCmd) {
@@ -314,8 +334,7 @@ async function main() {
     }
 
     /* ──────────── Finalize Setup ──────────── */
-    fs.writeFileSync(path.join(installDir, '.env'), envContent);
-    clack.log.success('.env file created successfully.');
+    // .env already written earlier
 
     /* ──────────── Save Global Install Location ──────────── */
     try {
