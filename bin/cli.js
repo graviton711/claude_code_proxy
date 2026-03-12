@@ -112,11 +112,13 @@ function runClaude() {
         ANTHROPIC_API_KEY: 'any-value'
     };
 
-    // Use npx.cmd on Windows to avoid shell: true warning
-    const cmd = os.platform() === 'win32' ? 'npx.cmd' : 'npx';
+    // On Windows, running CLI tools via spawn often requires shell: true
+    // regardless of the .cmd extension to ensure PATH resolution works correctly.
+    const cmd = os.platform() === 'win32' ? 'npx' : 'npx';
     const claude = spawn(cmd, ['@anthropic-ai/claude-code', ...process.argv.slice(2)], {
         stdio: 'inherit',
-        env
+        env,
+        shell: os.platform() === 'win32'
     });
 
     return claude;
@@ -126,7 +128,7 @@ async function run() {
     const installDir = getInstallDir();
     
     console.log(`${colors.magenta}${colors.bold}`);
-    console.log(`   ${colors.magenta}ᗑ${colors.white} Claude-to-iFlow${colors.dim} Manage v1.0.0${colors.reset}`);
+    console.log(`   ${colors.magenta}ᗑ${colors.white} Claude-to-iFlow${colors.dim} Manage v1.0.1${colors.reset}`);
     console.log('');
 
     await ensureConfig(installDir);
@@ -140,27 +142,35 @@ async function run() {
             info('Cleaning up proxy processes...');
             try {
                 if (os.platform() === 'win32') {
+                    // Taskkill /F /T ensures child processes (like the python interpreter) are also killed
                     execSync(`taskkill /F /T /PID ${currentPid}`, { stdio: 'ignore' });
                 } else {
                     process.kill(currentPid, 'SIGTERM');
                 }
-            } catch (e) {}
+                success('Proxy shutdown complete.');
+            } catch (e) {
+                // Ignore errors if process already dead
+            }
         }
     };
 
+    // Handle normal exit
     claudeProc.on('exit', async (code) => {
         await cleanup();
         process.exit(code || 0);
     });
 
+    // Handle abrupt exit (Ctrl+C)
     process.on('SIGINT', async () => {
         await cleanup();
         process.exit(0);
     });
 
-    process.on('SIGTERM', async () => {
+    // Handle unexpected errors in spawn
+    claudeProc.on('error', async (err) => {
+        error(`Failed to launch Claude Code: ${err.message}`);
         await cleanup();
-        process.exit(0);
+        process.exit(1);
     });
 }
 
