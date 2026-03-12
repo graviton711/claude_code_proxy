@@ -41,6 +41,7 @@ const confirm = (query, defaultYes = true) => new Promise((resolve) => {
 });
 
 async function main() {
+    process.stdout.write('Initializing setup wizard...\r');
     console.log(`${colors.cyan}${colors.bold}`);
     console.log(`   ______ _                       __        `);
     console.log(`  / ____/| |                     / /        `);
