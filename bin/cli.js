@@ -14,7 +14,7 @@ const pkg = require('../package.json');
 const version = `v${pkg.version}`;
 
 // Colors & Styling
-const colors = {
+const _colors = {
     cyan: '\x1b[36m',
     yellow: '\x1b[33m',
     green: '\x1b[32m',
@@ -26,6 +26,10 @@ const colors = {
     dim: '\x1b[2m',
     reset: '\x1b[0m'
 };
+
+const colors = new Proxy(_colors, {
+    get: (target, prop) => target[prop] || ''
+});
 
 const log = (msg) => console.log(` ${colors.gray}│${colors.reset} ${msg}`);
 const info = (msg) => console.log(` ${colors.gray}│${colors.reset} ${colors.cyan}${msg}${colors.reset}`);

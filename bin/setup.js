@@ -7,7 +7,7 @@ const os = require('os');
 const readline = require('readline');
 
 // ANSI Colors for zero-dependency styling
-const colors = {
+const _colors = {
     cyan: '\x1b[36m',
     yellow: '\x1b[33m',
     green: '\x1b[32m',
@@ -16,8 +16,14 @@ const colors = {
     white: '\x1b[37m',
     gray: '\x1b[90m',
     bold: '\x1b[1m',
+    dim: '\x1b[2m',
     reset: '\x1b[0m'
 };
+
+// Safety proxy for colors to avoid 'undefined' in logs
+const colors = new Proxy(_colors, {
+    get: (target, prop) => target[prop] || ''
+});
 
 const pkgRoot = path.resolve(__dirname, '..');
 
