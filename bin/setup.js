@@ -59,7 +59,7 @@ async function main() {
     
     console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}`);
     console.log(`${colors.yellow}${colors.bold}   CLAUDE-TO-OPENAI PROXY SETUP${colors.reset}`);
-    console.log(`${colors.green}${colors.bold}   Creator: Sơn${colors.reset}`);
+    console.log(`${colors.green}${colors.bold}   Creator: Son${colors.reset}`);
     console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}\n`);
     
     console.log(`${colors.gray}   This wizard will deploy and configure the proxy for your machine.\n${colors.reset}`);
@@ -150,7 +150,7 @@ LOG_LEVEL=INFO
     console.log(`${colors.green}[DONE] .env file created.${colors.reset}`);
 
     // 5. Install Python dependencies
-    console.log(`${colors.yellow}\n📦 Installing Python dependencies...${colors.reset}`);
+    console.log(`${colors.yellow}\n[DEPS] Installing Python dependencies...${colors.reset}`);
     try {
         execSync('pip install -r requirements.txt', { cwd: installDir, stdio: 'inherit' });
         console.log(`${colors.green}[DONE] Python dependencies installed.${colors.reset}`);
@@ -177,7 +177,7 @@ LOG_LEVEL=INFO
     } catch (error) {
         const installClaude = await confirm('Claude Code CLI not found. Do you want to install it? (Requires npm -g)', true);
         if (installClaude) {
-            console.log(`${colors.yellow}📦 Installing @anthropic-ai/claude-code...${colors.reset}`);
+            console.log(`${colors.yellow}[INSTALL] Installing @anthropic-ai/claude-code...${colors.reset}`);
             try {
                 execSync('npm install -g @anthropic-ai/claude-code', { stdio: 'inherit' });
                 console.log(`${colors.green}[DONE] Claude Code CLI installed.${colors.reset}`);
@@ -217,7 +217,7 @@ function setupPowerShellProfile(installDir) {
             currentProfile = fs.readFileSync(profilePath, 'utf8');
             const backupPath = `${profilePath}.bak-${Date.now()}`;
             fs.writeFileSync(backupPath, currentProfile);
-            console.log(`${colors.gray}📦 Created profile backup at: ${backupPath}${colors.reset}`);
+            console.log(`${colors.gray}[BACKUP] Created profile backup at: ${backupPath}${colors.reset}`);
         }
 
         const escapedInstallDir = installDir.replace(/\\/g, '\\\\');
@@ -259,7 +259,7 @@ ${endTag}
         const regex = new RegExp(`${startTag}[\\s\\S]*?${endTag}`, 'g');
         
         if (currentProfile.match(regex)) {
-            console.log(`${colors.cyan}ℹ️  Existing configuration found. Updating paths...${colors.reset}`);
+            console.log(`${colors.cyan}[INFO] Existing configuration found. Updating paths...${colors.reset}`);
             updatedProfile = currentProfile.replace(regex, injection.trim());
         } else {
             updatedProfile = currentProfile + '\n' + injection;
