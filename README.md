@@ -54,25 +54,32 @@ If you prefer a manual setup:
 
 ## Usage
 
-### 1. Start the Proxy
+### 1. The "claude" Command (Automated)
 
-If you used the npx installer on Windows, you can simply type `claude` in a new terminal.
+If you used the setup wizard on Windows, you can simply run:
+```bash
+claude
+```
+This command automatically:
+- Starts the proxy server in the background (if not already running).
+- Sets the necessary environment variables (`ANTHROPIC_BASE_URL`).
+- Launches the Claude Code CLI.
+- Gracefully shuts down the proxy when you exit.
 
-Otherwise, start the proxy server:
+### 2. Manual Startup (Fallback)
+
+If you need to start the proxy manually:
 ```bash
 python start_proxy.py
 ```
+Then, in another terminal, run Claude Code with the proxy URL:
 
-### 2. Run Claude Code
-
-Configure the Base URL and run the CLI:
-
-Windows (PowerShell):
+**Windows (PowerShell):**
 ```powershell
 $env:ANTHROPIC_BASE_URL="http://localhost:8082"; $env:ANTHROPIC_API_KEY="any"; npx @anthropic-ai/claude-code
 ```
 
-Linux / macOS:
+**Linux / macOS:**
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=any npx @anthropic-ai/claude-code
 ```
