@@ -298,6 +298,8 @@ async function main() {
             if (dockerReady) {
                 const dockerSpinner = ora({ text: 'Starting Searxng container...', color: 'blue' }).start();
                 try {
+                    // Pull and down first for robustness
+                    execSync('docker compose down', { cwd: installDir, stdio: 'pipe' });
                     execSync('docker compose up -d', { cwd: installDir, stdio: 'pipe' });
                     dockerSpinner.succeed('Searxng is running.');
                 } catch {
