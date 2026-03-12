@@ -84,7 +84,7 @@ BIG_MODEL=${answers.MODEL}
 MIDDLE_MODEL=${answers.MODEL}
 SMALL_MODEL=${answers.MODEL}
 MAX_TOKENS=8096
-REQUEST_TIMEOUT=300
+REQUEST_TIMEOUT=600
 IMAGE_ROUTING_ENABLED=true
 IMAGE_ROUTING_MODE=handoff
 VISION_HANDOFF_MAX_TOKENS=1800
@@ -173,18 +173,18 @@ function setupPowerShellProfile(installDir) {
         let currentProfile = '';
         if (fs.existsSync(profilePath)) {
             currentProfile = fs.readFileSync(profilePath, 'utf8');
-        }
-
-        // Avoid duplicate/Conflicting injection - clean up old ones if referencing different paths
-        if (currentProfile.includes('function Start-Claude')) {
-            console.log(chalk.blue('ℹ️  Claude function already exists in your PowerShell profile. Updating path...'));
-            // Optional: Logic to replace existing block if needed. For now, we'll append a fresh block or skip.
-            // Simplified: We'll append it anyway if it doesn't match the new path exactly.
+            // Create backup
+            const backupPath = `${profilePath}.bak-${Date.now()}`;
+            fs.writeFileSync(backupPath, currentProfile);
+            console.log(chalk.gray(`📦 Created profile backup at: ${backupPath}`));
         }
 
         const escapedInstallDir = installDir.replace(/\\/g, '\\\\');
+        const startTag = '# --- Claude Code Proxy Configuration START ---';
+        const endTag = '# --- Claude Code Proxy Configuration END ---';
+        
         const injection = `
-# --- Claude Code Proxy Configuration (Updated: ${new Date().toLocaleDateString()}) ---
+${startTag}
 function Ensure-ClaudeProxy {
     param([int]$Port = 8082, [int]$StartupDelayMs = 1800)
     $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -211,10 +211,21 @@ function Start-Claude {
     }
 }
 if (-not (Get-Alias claude -ErrorAction SilentlyContinue)) { Set-Alias claude Start-Claude -Force }
-# ----------------------------------------
+${endTag}
 `;
 
-        fs.appendFileSync(profilePath, injection);
+        let updatedProfile = '';
+        const regex = new RegExp(`${startTag}[\\s\\S]*?${endTag}`, 'g');
+        
+        if (currentProfile.match(regex)) {
+            console.log(chalk.blue('ℹ️  Existing configuration found. Updating with new paths...'));
+            updatedProfile = currentProfile.replace(regex, injection.trim());
+        } else {
+            updatedProfile = currentProfile + '\n' + injection;
+        }
+
+        fs.writeFileSync(profilePath, updatedProfile.trim() + '\n');
+        console.log(chalk.green(`✅ PowerShell profile updated at: ${profilePath}`));
         console.log(chalk.green(`✅ PowerShell profile updated at: ${profilePath}`));
     } catch (error) {
         console.log(chalk.red(`❌ Error updating PowerShell profile: ${error.message}`));
