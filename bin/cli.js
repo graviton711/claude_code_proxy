@@ -157,10 +157,9 @@ async function run() {
         await cleanup();
         process.exit(0);
     });
-}
-    
-    process.on('SIGTERM', () => {
-        cleanup();
+
+    process.on('SIGTERM', async () => {
+        await cleanup();
         process.exit(0);
     });
 }
