@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from src.api.endpoints import router as api_router
 import uvicorn
 import sys
@@ -7,6 +9,17 @@ from src.core.config import config
 app = FastAPI(title="Claude-to-OpenAI API Proxy", version="1.0.0")
 
 app.include_router(api_router)
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    from src.core.logging import logger
+    body = await request.body()
+    logger.error(f"422 Validation Error: {exc.errors()}")
+    logger.error(f"Request body: {body.decode('utf-8', errors='replace')}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": body.decode('utf-8', errors='replace')},
+    )
 
 
 def main():

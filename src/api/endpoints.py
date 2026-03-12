@@ -14,6 +14,7 @@ from src.conversion.response_converter import (
     convert_openai_streaming_to_claude_with_cancellation,
 )
 from src.core.model_manager import model_manager
+from src.core.vision_handoff import apply_vision_handoff
 
 router = APIRouter()
 
@@ -63,10 +64,17 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
         # Convert Claude request to OpenAI format
         openai_request = convert_claude_to_openai(request, model_manager)
 
+        # Apply vision handoff if enabled and message has images
+        if config.image_routing_enabled and config.image_routing_mode == "handoff":
+            openai_request = await apply_vision_handoff(
+                openai_request, openai_client, config, logger
+            )
+
         # Check if client disconnected before processing
         if await http_request.is_disconnected():
             raise HTTPException(status_code=499, detail="Client disconnected")
 
+        print(f"STREAM FLAG: {request.stream}", flush=True)
         if request.stream:
             # Streaming response - wrap in error handling
             try:

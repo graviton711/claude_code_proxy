@@ -174,4 +174,15 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
-n
+
+# Temporary and generated files
+proxy*.log
+proxy_*.txt
+.env
+.env.*
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.gemini/
+proxy.log

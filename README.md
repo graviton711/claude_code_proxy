@@ -4,7 +4,23 @@ A proxy server that enables **Claude Code** to work with OpenAI-compatible API p
 
 ![Claude Code Proxy](demo.png)
 
-## Features
+## Installation & Setup
+
+The easiest way to set up everything is using **npx**:
+
+```bash
+npx claude-code-proxy-setup
+```
+
+This wizard will:
+1. Configure your API Keys and Models.
+2. Install Python dependencies.
+3. Setup Searxng (Docker).
+4. Integrate with your PowerShell Profile (Windows).
+
+---
+
+## Technical Features
 
 - **Full Claude API Compatibility**: Complete `/v1/messages` endpoint support
 - **Multiple Provider Support**: OpenAI, Azure OpenAI, local models (Ollama), and any OpenAI-compatible API

@@ -34,7 +34,8 @@ class ClaudeTool(BaseModel):
     input_schema: Dict[str, Any]
 
 class ClaudeThinkingConfig(BaseModel):
-    enabled: bool = True
+    type: Literal["enabled", "disabled", "adaptive"]
+    budget_tokens: Optional[int] = None
 
 class ClaudeMessagesRequest(BaseModel):
     model: str
@@ -43,6 +44,7 @@ class ClaudeMessagesRequest(BaseModel):
     system: Optional[Union[str, List[ClaudeSystemContent]]] = None
     stop_sequences: Optional[List[str]] = None
     stream: Optional[bool] = False
+    betas: Optional[List[str]] = None
     temperature: Optional[float] = 1.0
     top_p: Optional[float] = None
     top_k: Optional[int] = None

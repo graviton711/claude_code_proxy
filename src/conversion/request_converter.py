@@ -82,7 +82,7 @@ def convert_claude_to_openai(
             config.max_tokens_limit,
         ),
         "temperature": claude_request.temperature,
-        "stream": claude_request.stream,
+
     }
     logger.debug(
         f"Converted Claude request to OpenAI format: {json.dumps(openai_request, indent=2, ensure_ascii=False)}"
