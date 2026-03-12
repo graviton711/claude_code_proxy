@@ -2,6 +2,14 @@ FROM ghcr.io/astral-sh/uv:bookworm-slim
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pin Python version
+ENV UV_PYTHON=3.12
+
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
 
