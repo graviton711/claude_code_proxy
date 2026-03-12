@@ -252,7 +252,7 @@ async function handleUninstall() {
     const locFile = path.join(os.homedir(), '.claude-proxy-loc');
     const installDir = getInstallDir();
 
-    await cleanup(true);
+    await cleanup(installDir, true);
 
     const ora = (await import('ora')).default;
     const spinner = ora({
@@ -322,9 +322,12 @@ async function run() {
     const claudeProc = runClaude(env);
 
     claudeProc.on('exit', async (code) => {
-        // Use silent cleanup for a cleaner exit experience
+        // Use silent cleanup normally
         await cleanup(installDir, true);
-        if (isInteractive) drawFooter();
+        if (isInteractive) {
+            success('Proxy session finished.');
+            drawFooter();
+        }
         process.exit(code || 0);
     });
 
@@ -339,7 +342,7 @@ async function run() {
     });
 
     const handleExit = async () => {
-        await cleanup(installDir, true);
+        await cleanup(installDir, false); // Intentional visible cleanup on manual interrupt
         if (isInteractive) drawFooter();
         process.exit(0);
     };
