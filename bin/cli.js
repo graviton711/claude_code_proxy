@@ -115,11 +115,10 @@ async function ensureConfig(installDir) {
     const envVars = loadEnvFile(installDir);
 
     if (!validateConfig(envVars)) {
-        try {
-            execSync(`node "${path.join(installDir, 'bin', 'setup.js')}"`, { stdio: 'inherit' });
-        } catch {
+        const result = crossSpawn.sync('node', [path.join(installDir, 'bin', 'setup.js')], { stdio: 'inherit' });
+        if (result.status !== 0) {
             log(pc.red(pc.bold('✖ Setup aborted.')));
-            process.exit(1);
+            process.exit(result.status || 1);
         }
     }
 }
