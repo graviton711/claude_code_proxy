@@ -143,12 +143,19 @@ async function startProxy(installDir) {
 
     const envVars = loadEnvFile(installDir);
 
-    crossSpawn(pythonCmd, ['-X', 'utf8', PROXY_SCRIPT], {
+    const logPath = path.join(installDir, 'proxy.log');
+    const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+
+    const proxyProc = crossSpawn(pythonCmd, ['-X', 'utf8', PROXY_SCRIPT], {
         cwd: installDir,
         detached: false,
-        stdio: 'ignore',
+        stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, ...envVars }
     });
+
+    proxyProc.stdout.pipe(logStream);
+    proxyProc.stderr.pipe(logStream);
+    proxyProc.unref();
 
     let attempts = 0;
     while (attempts < 15) {
