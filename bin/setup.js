@@ -247,15 +247,19 @@ async function main() {
             clack.log.warning(`Run "${pipCmd} install -r requirements.txt" manually.`);
         }
     } else {
-        clack.log.warning('pip not found. Install Python dependencies manually.');
+        clack.log.error('pip not found. Python dependencies are required.');
+        clack.log.info('Install pip or set up a virtual environment, then run claude-proxy again.');
+        clack.outro(pc.red('Setup aborted.'));
+        process.exit(1);
     }
 
     /* ──────────── Docker / Searxng ──────────── */
     if (enableSearxng) {
         if (!isDockerInstalled()) {
-            clack.log.warning('Docker is not installed on this machine.');
+            clack.log.error('Docker is required for Searxng but is not installed.');
             clack.log.info('Install Docker from: https://docs.docker.com/get-docker/');
-            clack.log.info('After installing, run "docker compose up -d" in the install folder.');
+            clack.outro(pc.red('Setup aborted.'));
+            process.exit(1);
         } else {
             let dockerReady = isDockerRunning();
 
