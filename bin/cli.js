@@ -252,7 +252,7 @@ async function handleUninstall() {
     const locFile = path.join(os.homedir(), '.claude-proxy-loc');
     const installDir = getInstallDir();
 
-    await cleanup(true);
+    await cleanup(installDir, true);
 
     const ora = (await import('ora')).default;
     const spinner = ora({

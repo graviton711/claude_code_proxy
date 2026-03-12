@@ -34,7 +34,7 @@ class Config:
         self.small_model = os.environ.get("SMALL_MODEL", "gpt-4o-mini")
         
         # Vision settings
-        self.vision_model = os.environ.get("VISION_MODEL", "gpt-4o")
+        self.vision_model = os.environ.get("VISION_MODEL", "qwen3-vl-plus")
         self.image_routing_enabled = os.environ.get("IMAGE_ROUTING_ENABLED", "false").lower() == "true"
         self.image_routing_mode = os.environ.get("IMAGE_ROUTING_MODE", "handoff")
         self.vision_handoff_max_tokens = int(os.environ.get("VISION_HANDOFF_MAX_TOKENS", "1800"))

@@ -242,6 +242,7 @@ async function main() {
         `IMAGE_ROUTING_ENABLED=true`,
         `IMAGE_ROUTING_MODE=handoff`,
         `VISION_HANDOFF_MAX_TOKENS=1800`,
+        `VISION_MODEL=qwen3-vl-plus`,
         `LOG_LEVEL=INFO`,
         `ENABLE_SEARXNG=${enableSearxng}`
     ].join('\n') + '\n';
