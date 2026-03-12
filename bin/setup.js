@@ -44,9 +44,23 @@ async function main() {
     console.log(`${colors.cyan}${colors.bold}\n🚀 Welcome to Claude-to-OpenAI API Proxy All-in-One Setup!\n${colors.reset}`);
     console.log(`${colors.gray}This wizard will deploy and configure the proxy on your machine.\n${colors.reset}`);
 
-    // 1. Ask for Installation Directory
-    const defaultInstallDir = path.join(os.homedir(), 'claude-proxy');
-    const installDirRaw = await question('Where do you want to install the proxy?', defaultInstallDir);
+    // 1. Choose Installation Mode
+    console.log(`${colors.white}Where do you want to install the proxy?${colors.reset}`);
+    console.log(`  1) ${colors.cyan}Current folder${colors.reset} (${process.cwd()})`);
+    console.log(`  2) ${colors.cyan}Default folder${colors.reset} (${path.join(os.homedir(), 'claude-proxy')})`);
+    console.log(`  3) ${colors.cyan}Custom path${colors.reset}`);
+    
+    const choice = await question('Select an option [1/2/3]', '2');
+    
+    let installDirRaw = '';
+    if (choice === '1') {
+        installDirRaw = process.cwd();
+    } else if (choice === '3') {
+        installDirRaw = await question('Enter custom installation path');
+    } else {
+        installDirRaw = path.join(os.homedir(), 'claude-proxy');
+    }
+
     const installDir = path.resolve(installDirRaw.replace(/^~/, os.homedir()));
 
     // 2. Deploy Files
