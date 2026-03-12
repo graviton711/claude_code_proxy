@@ -1,6 +1,6 @@
 {
   "name": "@graviton711/claude-code-proxy",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A proxy server that enables **Claude Code** to work with OpenAI-compatible API providers. Convert Claude API requests to OpenAI API calls, allowing you to use various LLM providers through the Claude Code CLI.",
   "main": "index.js",
   "bin": {

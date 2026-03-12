@@ -1,52 +1,33 @@
-# Claude Code Proxy (iFlow Specialized)
+# Claude Code x iFlow Proxy
 
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/graviton711/claude_code_proxy.svg?style=social)](https://github.com/graviton711/claude_code_proxy/stargazers)
-[![iFlow Optimized](https://img.shields.io/badge/Optimization-iFlow.cn-cyan.svg)](#features)
+![](https://img.shields.io/badge/Node.js-18%2B-brightgreen?style=flat-square) ![](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square)
 
-A high-performance bridge specifically optimized for iFlow.cn, enabling Claude Code CLI to work seamlessly with OpenAI-compatible APIs while bypassing strict concurrency and initialization constraints.
+**Claude Code x iFlow Proxy** is a specialized orchestrator designed to connect **Claude Code** CLI directly with the **iFlow** provider (apis.iflow.cn). It provides a seamless bridge by converting Claude API requests to OpenAI-compatible calls, with full support for core iFlow features like *Thinking Process* and *Reasoning tokens*.
 
-## Overview
+This tool acts as a professional Orchestrator: managing the proxy backend lifecycle, automating environment variables, and delivering a premium terminal experience.
 
-Claude Code Proxy acts as a translation layer between the Anthropic Claude API format used by the Claude Code CLI and OpenAI-compatible providers. It is specifically tuned for iFlow.cn to handle parallel initialization issues and thinking/reasoning model mapping.
+## Get started
 
-## Features
+> [!IMPORTANT]
+> This tool requires both **Node.js** and **Python** installed on your system.
 
-- iFlow.cn Specialized Staggering: Built-in 0.5s delay between request starts to eliminate 434 (Invalid apiKey) and 429 (Rate limit) errors.
-- Thinking Support: Full integration for reasoning models (o1/o3), mapping Claude thinking blocks to OpenAI reasoning effort.
-- Multimodal Handling: Optimized Base64 image processing with Lazy Deepcopy for minimal memory overhead.
-- Real-time Streaming: Fluid experience for both text and tool calls (incremental input_json_delta delivery).
-- Error Handling: Graceful conversion of non-SSE JSON errors into Claude-compatible events.
+### Method 1: Global Installation (Recommended)
 
-### Global Installation (Standard NPM)
+Install the CLI manager globally to use the `claude-proxy` command anywhere:
 
-You can install the tool globally to use it anywhere:
-
-**Option A: Install from GitHub**
 ```bash
 npm install -g graviton711/claude_code_proxy
 ```
 
-**Option B: Install from local source** (if you cloned the repo)
-```bash
-cd claude_code_proxy
-npm install -g .
-```
+### Method 2: Run-on-the-fly (NPX)
 
-### Run-on-the-fly (NPX)
-
-If you don't want to install it permanently, you can use `npx`:
+Run the orchestrator without permanent installation:
 
 ```bash
 npx github:graviton711/claude_code_proxy
 ```
 
-*Note: Once published to the registry, you can use `npm install -g @graviton711/claude-code-proxy`.*
-
-### Manual Installation
-
-If you prefer manual setup:
+### Method 3: Manual Setup
 
 1. Clone the repository:
    ```bash
@@ -56,55 +37,30 @@ If you prefer manual setup:
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
-3. Configure .env based on .env.example.
+   npm install
+   ```
 
 ## Usage
 
-### 1. The "claude" Command (Automated)
+Once installed, simply run the orchestrator in any project directory:
 
-If you used the setup wizard on Windows, you can simply run:
 ```bash
-claude
-```
-This command automatically:
-- Starts the proxy server in the background (if not already running).
-- Sets the necessary environment variables (`ANTHROPIC_BASE_URL`).
-- Launches the Claude Code CLI.
-- Gracefully shuts down the proxy when you exit.
-
-### 2. Manual Startup (Fallback)
-
-If you need to start the proxy manually:
-```bash
-python start_proxy.py
-```
-Then, in another terminal, run Claude Code with the proxy URL:
-
-**Windows (PowerShell):**
-```powershell
-$env:ANTHROPIC_BASE_URL="http://localhost:8082"; $env:ANTHROPIC_API_KEY="any"; npx @anthropic-ai/claude-code
+claude-proxy
 ```
 
-**Linux / macOS:**
-```bash
-ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=any npx @anthropic-ai/claude-code
-```
+The automated workflow includes:
+1. **Selection**: Guides you through a one-time setup if `.env` (iFlow API Key, Model...) is missing.
+2. **Boot**: Automatically spins up the Python proxy optimized for iFlow.
+3. **Connect**: Launches the official Claude Code CLI with pre-configured environment variables.
+4. **Cleanup**: Gracefully shuts down the proxy and releases ports when you exit Claude.
 
-## Configuration
+## Key Features
 
-The proxy is configured via environment variables or a .env file.
+- **iFlow Optimized**: First-class support for `apis.iflow.cn`, including specialized handling for reasoning/thinking models.
+- **Premium UI**: Box-drawing aesthetics and color-coded logging inspired by high-end developer tools.
+- **Non-Invasive**: Zero changes to your system `PATH` or Shell Profiles.
+- **Smart Lifecycle**: Fully managed proxy startup and shutdown synchronized with your Claude session.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| OPENAI_BASE_URL | https://api.openai.com/v1 | Set to https://apis.iflow.cn/v1 for iFlow |
-| OPENAI_API_KEY | None | Your backend API key |
-| ANTHROPIC_API_KEY | None | (Optional) Key for client-side validation |
-| IFLOW_STAGGER_DELAY | 0.5 | Delay in seconds between initialization |
-| MAX_TOKENS_LIMIT | 4096 | Output token safety cap |
-| REQUEST_TIMEOUT | 90 | API connection timeout |
+---
 
-## License
-
-MIT License. Free for all developers.
-
-Developed for the iFlow and Claude community.
+*Note: This is an unofficial proxy manager for @anthropic-ai/claude-code, specifically tailored for the iFlow ecosystem.*

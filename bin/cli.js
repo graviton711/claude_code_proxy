@@ -24,13 +24,25 @@ const colors = {
     reset: '\x1b[0m'
 };
 
-const LOG_PREFIX = `${colors.bold}${colors.magenta}ᗑ${colors.reset}`;
+const log = (msg) => console.log(` ${colors.gray}│${colors.reset} ${msg}`);
+const info = (msg) => console.log(` ${colors.gray}│${colors.reset} ${colors.cyan}${msg}${colors.reset}`);
+const warn = (msg) => console.log(` ${colors.gray}│${colors.reset} ${colors.yellow}⚠ ${msg}${colors.reset}`);
+const error = (msg) => console.error(` ${colors.gray}│${colors.reset} ${colors.red}${colors.bold}✖ ${msg}${colors.reset}`);
+const success = (msg) => console.log(` ${colors.gray}│${colors.reset} ${colors.green}✔ ${msg}${colors.reset}`);
 
-const log = (msg) => console.log(`${LOG_PREFIX} ${msg}`);
-const info = (msg) => console.log(`${LOG_PREFIX} ${colors.cyan}${msg}${colors.reset}`);
-const warn = (msg) => console.log(`${LOG_PREFIX} ${colors.yellow}⚠ ${msg}${colors.reset}`);
-const error = (msg) => console.error(`${LOG_PREFIX} ${colors.red}${colors.bold}✖ ${msg}${colors.reset}`);
-const success = (msg) => console.log(`${LOG_PREFIX} ${colors.green}✔ ${msg}${colors.reset}`);
+function drawHeader(title, version) {
+    const termWidth = process.stdout.columns || 80;
+    const line = '─'.repeat(Math.max(0, termWidth - title.length - version.length - 10));
+    console.log(`\n ${colors.magenta}╭───${colors.reset} ${colors.bold}${title}${colors.reset} ${colors.dim}${version}${colors.reset} ${colors.magenta}${line}╮${colors.reset}`);
+    console.log(` ${colors.magenta}│${colors.reset}`);
+}
+
+function drawFooter() {
+    const termWidth = process.stdout.columns || 80;
+    const line = '─'.repeat(Math.max(0, termWidth - 4));
+    console.log(` ${colors.magenta}│${colors.reset}`);
+    console.log(` ${colors.magenta}╰${line}╯${colors.reset}\n`);
+}
 
 // Configuration
 const DEFAULT_PORT = 8082;
@@ -112,13 +124,14 @@ function runClaude() {
         ANTHROPIC_API_KEY: 'any-value'
     };
 
-    // On Windows, running CLI tools via spawn often requires shell: true
-    // regardless of the .cmd extension to ensure PATH resolution works correctly.
-    const cmd = os.platform() === 'win32' ? 'npx' : 'npx';
+    // To avoid [DEP0190] warning on Node 22+ and ensure reliability on Windows
+    const isWin = os.platform() === 'win32';
+    const cmd = isWin ? 'npx.cmd' : 'npx';
+    
     const claude = spawn(cmd, ['@anthropic-ai/claude-code', ...process.argv.slice(2)], {
         stdio: 'inherit',
         env,
-        shell: os.platform() === 'win32'
+        shell: false 
     });
 
     return claude;
@@ -127,9 +140,7 @@ function runClaude() {
 async function run() {
     const installDir = getInstallDir();
     
-    console.log(`${colors.magenta}${colors.bold}`);
-    console.log(`   ${colors.magenta}ᗑ${colors.white} Claude-to-iFlow${colors.dim} Manage v1.0.1${colors.reset}`);
-    console.log('');
+    drawHeader('Claude-to-iFlow Orchestrator', 'v1.0.2');
 
     await ensureConfig(installDir);
     const proxyPid = await startProxy(installDir);
@@ -157,19 +168,25 @@ async function run() {
     // Handle normal exit
     claudeProc.on('exit', async (code) => {
         await cleanup();
+        drawFooter();
         process.exit(code || 0);
     });
 
     // Handle abrupt exit (Ctrl+C)
     process.on('SIGINT', async () => {
         await cleanup();
+        drawFooter();
         process.exit(0);
     });
 
     // Handle unexpected errors in spawn
     claudeProc.on('error', async (err) => {
         error(`Failed to launch Claude Code: ${err.message}`);
+        if (err.code === 'ENOENT') {
+            info('Tip: Ensure "npm" and "npx" are in your PATH.');
+        }
         await cleanup();
+        drawFooter();
         process.exit(1);
     });
 }
