@@ -9,19 +9,19 @@
                                                                      |___/  
 ```
 
-# Claude Code Proxy (Production Ready)
+# Claude Code Proxy (iFlow Specialized)
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![GitHub stars](https://img.shields.io/github/stars/graviton711/claude_code_proxy.svg?style=social)](https://github.com/graviton711/claude_code_proxy/stargazers)
 
-A high-performance bridge that empowers **Claude Code CLI** to interact with any **OpenAI-compatible API** provider. Seamlessly translate Claude's unique features into Universal AI capabilities.
+A high-performance bridge specifically optimized for **iFlow.cn**, empowering **Claude Code CLI** to interact seamlessly with iFlow's API while satisfying strict concurrency constraints.
 
 ---
 
 ## Key Features
 
+- **iFlow.cn Specialized**: Built-in **Staggered Initiation** delay (0.5s) specifically designed to prevent "Invalid apiKey" (434) and concurrency (429) errors from iFlow.cn.
 - **Thinking / Reasoning (o1/o3 support)**: Automatically maps Claude's `thinking` parameters to OpenAI's `reasoning_effort`.
-- **iFlow.cn Optimized**: Built-in **Staggered Initiation** delay (0.5s) to satisfy iFlow's strict concurrency limits and prevent 429/434 errors.
 - **High Performance**: 
   - **Lazy Deepcopy**: Optimized memory usage for massive vision/image requests.
   - **Real-time Streaming**: Instant delivery of text and incremental tool call deltas.
