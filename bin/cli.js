@@ -79,7 +79,6 @@ async function ensureConfig(installDir) {
     const localEnvPath = path.join(installDir, '.env');
     
     if (!fs.existsSync(envPath) && !fs.existsSync(localEnvPath)) {
-        warn('Configuration missing. Initiating Setup...');
         try {
             execSync(`node "${path.join(installDir, 'bin', 'setup.js')}"`, { stdio: 'inherit' });
         } catch (e) {

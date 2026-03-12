@@ -12,6 +12,7 @@ const colors = {
     yellow: '\x1b[33m',
     green: '\x1b[32m',
     red: '\x1b[31m',
+    magenta: '\x1b[35m',
     white: '\x1b[37m',
     gray: '\x1b[90m',
     bold: '\x1b[1m',
@@ -60,7 +61,7 @@ function drawSetupHeader() {
 }
 
 async function main() {
-    process.stdout.write(' Initializing Orchestrator...\r');
+    process.stdout.write(' Booting Setup Engine...\r');
     
     drawSetupHeader();
 
