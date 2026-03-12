@@ -97,7 +97,7 @@ function getInstallDir() {
             if (fs.existsSync(savedPath)) {
                 return savedPath;
             }
-        } catch {}
+        } catch { }
     }
 
     // 2. Fallback to package root
@@ -206,7 +206,7 @@ async function cleanup(installDir, silent = false) {
     // 1. Remove our own session lock
     const sessionFile = path.join(installDir, 'sessions', `${process.pid}.lock`);
     if (fs.existsSync(sessionFile)) {
-        try { fs.unlinkSync(sessionFile); } catch {}
+        try { fs.unlinkSync(sessionFile); } catch { }
     }
 
     // 2. Scan for other active sessions
@@ -222,7 +222,7 @@ async function cleanup(installDir, silent = false) {
                     otherActiveSessions++;
                 } else if (pid !== String(process.pid)) {
                     // Cleanup stale lock files from crashed processes
-                    try { fs.unlinkSync(path.join(sessionsDir, file)); } catch {}
+                    try { fs.unlinkSync(path.join(sessionsDir, file)); } catch { }
                 }
             }
         }
@@ -276,7 +276,7 @@ async function handleUninstall() {
 
         spinner.succeed('Deep cleanup complete.');
         log(pc.dim('The proxy files and configuration have been removed.'));
-        log(pc.dim('To finish, run: npm uninstall -g graviton711/claude_code_proxy'));
+        log(pc.dim('To finish, run: npm uninstall -g @graviton711/claude-code-proxy'));
     } catch (err) {
         spinner.fail(`Cleanup failed: ${err.message}`);
     }
@@ -293,9 +293,24 @@ async function run() {
         return;
     }
 
-    drawHeader('Claude-to-iFlow Orchestrator', version);
+    // Flag Detection - Suppress header if user is running non-interactive flags
+    const args = process.argv.slice(2);
+    const isInteractive = args.length === 0 || !args.some(arg => arg.startsWith('-'));
+    
+    if (isInteractive) {
+        drawHeader('Claude-to-iFlow Orchestrator', version);
+    } else {
+        log(pc.dim(`\n Claude-to-iFlow v${version} (Transparent Proxy Active)`));
+    }
 
-    await ensureConfig(installDir);
+    try {
+        await ensureConfig(installDir);
+    } catch (err) {
+        // Setup cancelled or failed
+        if (isInteractive) drawFooter();
+        process.exit(1);
+    }
+
     await startProxy(installDir);
     registerSession(installDir);
 
@@ -308,8 +323,9 @@ async function run() {
     const claudeProc = runClaude(env);
 
     claudeProc.on('exit', async (code) => {
-        await cleanup(installDir);
-        drawFooter();
+        // Use silent cleanup for a cleaner exit experience
+        await cleanup(installDir, true);
+        if (isInteractive) drawFooter();
         process.exit(code || 0);
     });
 
@@ -318,14 +334,14 @@ async function run() {
         if (err.code === 'ENOENT') {
             log(pc.dim('Tip: Ensure "npm" and "npx" are in your PATH.'));
         }
-        await cleanup(installDir);
-        drawFooter();
+        await cleanup(installDir, true);
+        if (isInteractive) drawFooter();
         process.exit(1);
     });
 
     const handleExit = async () => {
-        await cleanup(installDir);
-        drawFooter();
+        await cleanup(installDir, true);
+        if (isInteractive) drawFooter();
         process.exit(0);
     };
 

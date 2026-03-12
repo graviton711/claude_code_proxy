@@ -1,0 +1,18 @@
+# SearXNG settings
+use_default_settings: true
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "ultrasecretkey" # Required for some engines
+
+search:
+  formats:
+    - html
+    - json
+
+enabled_engines:
+  - google
+  - duckduckgo
+  - wikipedia
+  - bing

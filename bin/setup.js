@@ -72,7 +72,7 @@ function tryStartDocker() {
                     const wherePath = execSync('where docker', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim().split('\n')[0];
                     const candidate = path.resolve(path.dirname(wherePath), '..', 'Docker Desktop.exe');
                     if (fs.existsSync(candidate)) dockerPath = candidate;
-                } catch {}
+                } catch { }
             }
             if (dockerPath) {
                 execSync(`start "" "${dockerPath}"`, { stdio: 'ignore', shell: true });
@@ -85,7 +85,7 @@ function tryStartDocker() {
             execSync('systemctl start docker', { stdio: 'ignore' });
             return true;
         }
-    } catch {}
+    } catch { }
     return false;
 }
 
@@ -146,7 +146,7 @@ async function main() {
 
     if (clack.isCancel(installChoice)) {
         clack.cancel('Setup cancelled.');
-        process.exit(0);
+        process.exit(1);
     }
 
     let installDir;
@@ -161,7 +161,7 @@ async function main() {
         });
         if (clack.isCancel(customPath)) {
             clack.cancel('Setup cancelled.');
-            process.exit(0);
+            process.exit(1);
         }
         installDir = path.resolve(customPath.replace(/^~/, os.homedir()));
     } else {
@@ -177,7 +177,8 @@ async function main() {
 
     const filesToCopy = [
         'src', 'requirements.txt', 'pyproject.toml', 'uv.lock',
-        'start_proxy.py', 'docker-compose.yml', 'Dockerfile', 'README.md'
+        'start_proxy.py', 'docker-compose.yml', 'Dockerfile', 'README.md',
+        'searxng'
     ];
 
     for (const file of filesToCopy) {
@@ -186,7 +187,7 @@ async function main() {
         if (fs.existsSync(srcPath)) {
             // If the destination is a directory but should be a file (e.g. .env bug), delete it
             if (fs.existsSync(destPath) && fs.get && fs.lstatSync(destPath).isDirectory() && !file.includes('/') && file !== 'src') {
-               // Special handling for .env later, but general safety check
+                // Special handling for .env later, but general safety check
             }
             copyRecursiveSync(srcPath, destPath);
         }
@@ -209,25 +210,25 @@ async function main() {
             if (!val) return 'API Key is required.';
         },
     });
-    if (clack.isCancel(apiKey)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+    if (clack.isCancel(apiKey)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
     const baseUrl = await clack.text({
         message: 'Enter the API Base URL:',
         initialValue: 'https://apis.iflow.cn/v1',
     });
-    if (clack.isCancel(baseUrl)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+    if (clack.isCancel(baseUrl)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
     const model = await clack.text({
         message: 'Enter the Model name to use:',
         initialValue: 'kimi-k2-0905',
     });
-    if (clack.isCancel(model)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+    if (clack.isCancel(model)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
     const enableSearxng = await clack.confirm({
         message: 'Enable Searxng (Google Search for Claude)?',
         initialValue: true,
     });
-    if (clack.isCancel(enableSearxng)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+    if (clack.isCancel(enableSearxng)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
     /* ──────────── Write .env ──────────── */
     const envContent = [
@@ -242,6 +243,7 @@ async function main() {
         `IMAGE_ROUTING_MODE=handoff`,
         `VISION_HANDOFF_MAX_TOKENS=1800`,
         `LOG_LEVEL=INFO`,
+        `ENABLE_SEARXNG=${enableSearxng}`
     ].join('\n') + '\n';
 
     // Explicit cleanup for .env directory bug before writing file
@@ -302,6 +304,23 @@ async function main() {
                     execSync('docker compose down', { cwd: installDir, stdio: 'pipe' });
                     execSync('docker compose up -d', { cwd: installDir, stdio: 'pipe' });
                     dockerSpinner.succeed('Searxng is running.');
+
+                    /* ──────────── MCP Registration ──────────── */
+                    const mcpSpinner = ora({ text: 'Registering Searxng MCP Tool...', color: 'magenta' }).start();
+                    try {
+                        // Check if searxng mcp is already registered to avoid noise
+                        const mcpList = execSync('claude mcp list', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+                        if (!mcpList.includes('searxng')) {
+                            execSync('claude mcp add searxng npx -y @modelcontextprotocol/server-searxng --url http://localhost:8080', { stdio: 'pipe' });
+                            mcpSpinner.succeed('Searxng MCP Tool registered successfully.');
+                        } else {
+                            mcpSpinner.succeed('Searxng MCP Tool already registered.');
+                        }
+                    } catch (mcpErr) {
+                        mcpSpinner.warn('Could not auto-register MCP Tool.');
+                        clack.log.info(pc.dim('Tip: You can manually add it with:'));
+                        clack.log.info(pc.cyan('  claude mcp add searxng npx -y @modelcontextprotocol/server-searxng --url http://localhost:8080'));
+                    }
                 } catch {
                     dockerSpinner.warn('Could not start Searxng.');
                     clack.log.warning('Run "docker compose up -d" in the install folder manually.');
@@ -321,7 +340,7 @@ async function main() {
             message: 'Install Claude Code CLI globally? (npm install -g @anthropic-ai/claude-code)',
             initialValue: true,
         });
-        if (clack.isCancel(installClaude)) { clack.cancel('Setup cancelled.'); process.exit(0); }
+        if (clack.isCancel(installClaude)) { clack.cancel('Setup cancelled.'); process.exit(1); }
 
         if (installClaude) {
             const installSpinner = ora({ text: 'Installing Claude Code CLI...', color: 'green' }).start();
@@ -342,7 +361,7 @@ async function main() {
     try {
         const locFile = path.join(os.homedir(), '.claude-proxy-loc');
         fs.writeFileSync(locFile, installDir, 'utf-8');
-    } catch {}
+    } catch { }
 
     /* ──────────── Done ──────────── */
     clack.note(
