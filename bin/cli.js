@@ -87,6 +87,26 @@ async function ensureConfig(installDir) {
     }
 }
 
+function loadEnvFile(installDir) {
+    const candidates = [
+        path.join(process.cwd(), '.env'),
+        path.join(installDir, '.env'),
+    ];
+    const envFile = candidates.find(p => fs.existsSync(p));
+    if (!envFile) return {};
+
+    const vars = {};
+    const lines = fs.readFileSync(envFile, 'utf-8').split('\n');
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+        vars[trimmed.slice(0, eqIdx)] = trimmed.slice(eqIdx + 1);
+    }
+    return vars;
+}
+
 async function startProxy(installDir) {
     const existingPid = await getPortPID(DEFAULT_PORT);
     if (existingPid) {
@@ -107,10 +127,13 @@ async function startProxy(installDir) {
         process.exit(1);
     }
 
+    const envVars = loadEnvFile(installDir);
+
     crossSpawn(pythonCmd, ['-X', 'utf8', PROXY_SCRIPT], {
         cwd: installDir,
         detached: false,
-        stdio: 'ignore'
+        stdio: 'ignore',
+        env: { ...process.env, ...envVars }
     });
 
     let attempts = 0;
