@@ -2,6 +2,8 @@
 
 ![](https://img.shields.io/badge/Node.js-18%2B-brightgreen?style=flat-square) ![](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square)
 
+![Illustration](image.png)
+
 **Claude Code x iFlow Proxy** is a specialized orchestrator designed to connect **Claude Code** CLI directly with the **iFlow** provider (apis.iflow.cn). It provides a seamless bridge by converting Claude API requests to OpenAI-compatible calls, with full support for core iFlow features like *Thinking Process* and *Reasoning tokens*.
 
 This tool acts as a professional Orchestrator: managing the proxy backend lifecycle, automating environment variables, and delivering a premium terminal experience.
