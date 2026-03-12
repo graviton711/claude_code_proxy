@@ -56,12 +56,12 @@ async function main() {
     console.log(`   /_/    /_/    \\____//_/|_| \\__, /    `);
     console.log(`                             /____/     `);
     console.log(`${colors.reset}`);
-    
+
     console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}`);
-    console.log(`${colors.yellow}${colors.bold}   CLAUDE-TO-OPENAI PROXY SETUP${colors.reset}`);
+    console.log(`${colors.yellow}${colors.bold}  CLAUDE-TO-IFLOW PROXY SETUP${colors.reset}`);
     console.log(`${colors.green}${colors.bold}   Creator: Son${colors.reset}`);
     console.log(`${colors.white}${colors.bold}   ========================================${colors.reset}\n`);
-    
+
     console.log(`${colors.gray}   This wizard will deploy and configure the proxy for your machine.\n${colors.reset}`);
 
     // 1. Choose Installation Mode
@@ -69,9 +69,9 @@ async function main() {
     console.log(`  1) ${colors.cyan}Current folder${colors.reset} (${process.cwd()})`);
     console.log(`  2) ${colors.cyan}Default folder${colors.reset} (${path.join(os.homedir(), 'claude-proxy')})`);
     console.log(`  3) ${colors.cyan}Custom path${colors.reset}`);
-    
+
     const choice = await question('Select an option [1/2/3]', '2');
-    
+
     let installDirRaw = '';
     if (choice === '1') {
         installDirRaw = process.cwd();
@@ -121,13 +121,13 @@ async function main() {
 
     // 3. Configuration Wizard
     console.log(`${colors.cyan}\n[CONFIG] Configuring your proxy...${colors.reset}`);
-    
+
     const OPENAI_API_KEY = await question('Enter your OpenAI-compatible API Key');
     if (!OPENAI_API_KEY) {
         console.log(`${colors.red}[ERROR] API Key is required. Exiting.${colors.reset}`);
         process.exit(1);
     }
-    
+
     const OPENAI_BASE_URL = await question('Enter the API Base URL', 'https://apis.iflow.cn/v1');
     const MODEL = await question('Enter the Model name to use (e.g., kimi-k2-0905)', 'kimi-k2-0905');
     const enableSearxng = await confirm('Do you want to enable Searxng (Google Search for Claude)?', true);
@@ -198,7 +198,7 @@ LOG_LEVEL=INFO
     console.log(`${colors.cyan}${colors.bold}\nSetup Complete!${colors.reset}`);
     console.log(`${colors.white}You can now use ${colors.green}${colors.bold}claude${colors.reset}${colors.white} command in your terminal.\n${colors.reset}`);
     console.log(`${colors.gray}Target installation folder: ${installDir}\n${colors.reset}`);
-    
+
     rl.close();
 }
 
@@ -223,7 +223,7 @@ function setupPowerShellProfile(installDir) {
         const escapedInstallDir = installDir.replace(/\\/g, '\\\\');
         const startTag = '# --- Claude Code Proxy Configuration START ---';
         const endTag = '# --- Claude Code Proxy Configuration END ---';
-        
+
         const injection = `
 ${startTag}
 function Ensure-ClaudeProxy {
@@ -257,7 +257,7 @@ ${endTag}
 
         let updatedProfile = '';
         const regex = new RegExp(`${startTag}[\\s\\S]*?${endTag}`, 'g');
-        
+
         if (currentProfile.match(regex)) {
             console.log(`${colors.cyan}[INFO] Existing configuration found. Updating paths...${colors.reset}`);
             updatedProfile = currentProfile.replace(regex, injection.trim());
