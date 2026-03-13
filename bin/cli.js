@@ -363,7 +363,8 @@ async function run() {
     const env = {
         ...process.env,
         ANTHROPIC_BASE_URL: `http://localhost:${DEFAULT_PORT}`,
-        ANTHROPIC_API_KEY: 'any-value'
+        ANTHROPIC_API_KEY: 'any-value',
+        ENABLE_TOOL_SEARCH: 'FALSE'
     };
 
     const claudeProc = runClaude(env);

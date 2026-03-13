@@ -386,7 +386,9 @@ async def convert_openai_streaming_to_claude_with_cancellation(
             yield stop_block(tool_data['claude_index'])
 
     if current_block_index == -1 and tool_block_counter == 0:
-        logger.warning(f"[STREAM] Warning: Conversion finished (Req: {request_id}) with 0 content blocks created.")
+        logger.warning(f"[STREAM] Warning: Conversion finished (Req: {request_id}) with 0 content blocks created. Yielding safety empty block.")
+        yield f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': 0, 'content_block': {'type': Constants.CONTENT_TEXT, 'text': ''}}, ensure_ascii=False)}\n\n"
+        yield f"event: {Constants.EVENT_CONTENT_BLOCK_STOP}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_STOP, 'index': 0}, ensure_ascii=False)}\n\n"
 
     yield f"event: {Constants.EVENT_MESSAGE_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_DELTA, 'delta': {'stop_reason': final_stop_reason, 'stop_sequence': None}, 'usage': usage_data}, ensure_ascii=False)}\n\n"
     yield f"event: {Constants.EVENT_MESSAGE_STOP}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_STOP}, ensure_ascii=False)}\n\n"
