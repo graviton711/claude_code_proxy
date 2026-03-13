@@ -232,6 +232,7 @@ async def convert_openai_streaming_to_claude_with_cancellation(
     http_request: Request,
     openai_client,
     request_id: str,
+    openai_request: dict,
 ):
     """Convert OpenAI streaming response to Claude streaming format with cancellation support."""
 
@@ -242,142 +243,168 @@ async def convert_openai_streaming_to_claude_with_cancellation(
     yield f"event: {Constants.EVENT_MESSAGE_START}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_START, 'message': {'id': message_id, 'type': 'message', 'role': Constants.ROLE_ASSISTANT, 'model': original_request.model, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': 0, 'output_tokens': 0}}}, ensure_ascii=False)}\n\n"
     yield f"event: {Constants.EVENT_PING}\ndata: {json.dumps({'type': Constants.EVENT_PING}, ensure_ascii=False)}\n\n"
 
-    # State machine for content blocks
-    current_block_type = None  # None, "text", or "thinking"
-    current_block_index = -1
-    tool_block_counter = 0
-    current_tool_calls = {}
-    final_stop_reason = Constants.STOP_END_TURN
-    usage_data = {"input_tokens": 0, "output_tokens": 0}
-    chunk_count = 0
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        # State machine for content blocks
+        current_block_type = None  # None, "text", or "thinking"
+        current_block_index = -1
+        tool_block_counter = 0
+        current_tool_calls = {}
+        final_stop_reason = Constants.STOP_END_TURN
+        usage_data = {"input_tokens": 0, "output_tokens": 0}
+        chunk_count = 0
+        has_yielded_data = False
 
-    def start_block(index, btype):
-        nonlocal current_block_type, current_block_index
-        logger.info(f"[STREAM] Initializing content block: index={index}, type={btype}")
-        current_block_type = btype
-        current_block_index = index
-        if btype == "thinking":
-            return f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': index, 'content_block': {'type': 'thinking', 'thinking': '', 'signature': None}}, ensure_ascii=False)}\n\n"
-        else:
-            return f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': index, 'content_block': {'type': Constants.CONTENT_TEXT, 'text': ''}}, ensure_ascii=False)}\n\n"
+        def start_block(index, btype):
+            nonlocal current_block_type, current_block_index, has_yielded_data
+            logger.info(f"[STREAM] Initializing content block: index={index}, type={btype}")
+            current_block_type = btype
+            current_block_index = index
+            has_yielded_data = True
+            if btype == "thinking":
+                return f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': index, 'content_block': {'type': 'thinking', 'thinking': '', 'signature': None}}, ensure_ascii=False)}\n\n"
+            else:
+                return f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': index, 'content_block': {'type': Constants.CONTENT_TEXT, 'text': ''}}, ensure_ascii=False)}\n\n"
 
-    def stop_block(index):
-        logger.info(f"[STREAM] Closing content block: index={index}")
-        return f"event: {Constants.EVENT_CONTENT_BLOCK_STOP}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_STOP, 'index': index}, ensure_ascii=False)}\n\n"
+        def stop_block(index):
+            logger.info(f"[STREAM] Closing content block: index={index}")
+            return f"event: {Constants.EVENT_CONTENT_BLOCK_STOP}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_STOP, 'index': index}, ensure_ascii=False)}\n\n"
 
-    try:
-        async for line in openai_stream:
-            # Check if client disconnected
-            if await http_request.is_disconnected():
-                logger.info(f"[STREAM] Client disconnected, cancelling request {request_id}")
-                openai_client.cancel_request(request_id)
-                break
-
-            if not line.strip(): 
-                logger.debug("[STREAM] Heartbeat (empty line) received")
-                continue
-            if not line.startswith("data: "): continue
+        try:
+            # Re-create stream for each retry attempt
+            stream_to_process = openai_stream if retry_count == 0 else openai_client.create_chat_completion_stream(
+                openai_request, request_id
+            )
             
-            chunk_data = line[6:]
-            if chunk_data.strip() == "[DONE]": 
-                logger.info("[STREAM] Provider signaled [DONE]")
-                break
+            async for line in stream_to_process:
+                # Check if client disconnected
+                if await http_request.is_disconnected():
+                    logger.info(f"[STREAM] Client disconnected, cancelling request {request_id}")
+                    openai_client.cancel_request(request_id)
+                    return # Exit generator
 
-            chunk_count += 1
-            try:
-                chunk = json.loads(chunk_data)
+                if not line.strip(): 
+                    logger.debug("[STREAM] Heartbeat (empty line) received")
+                    continue
+                if not line.startswith("data: "): continue
+                
+                chunk_data = line[6:]
+                if chunk_data.strip() == "[DONE]": 
+                    logger.info("[STREAM] Provider signaled [DONE]")
+                    break
 
-                # Check for explicit error fields in provider chunk
-                if "error" in chunk:
-                    error_msg = chunk["error"].get("message", "Unknown provider error")
-                    logger.error(f"[STREAM] Provider error chunk detected: {error_msg}")
-                    yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': f'Provider error: {error_msg}'}}, ensure_ascii=False)}\n\n"
-                    return
+                chunk_count += 1
+                try:
+                    chunk = json.loads(chunk_data)
 
-                usage = chunk.get("usage", None)
-                if usage:
-                    cache_read_input_tokens = 0
-                    prompt_tokens_details = usage.get('prompt_tokens_details', {})
-                    if prompt_tokens_details:
-                        cache_read_input_tokens = prompt_tokens_details.get('cached_tokens', 0)
-                    usage_data = {
-                        'input_tokens': usage.get('prompt_tokens', 0),
-                        'output_tokens': usage.get('completion_tokens', 0),
-                        'cache_read_input_tokens': cache_read_input_tokens
-                    }
-                choices = chunk.get("choices", [])
-                if not choices: continue
-            except json.JSONDecodeError:
+                    # Check for explicit error fields in provider chunk
+                    if "error" in chunk:
+                        error_msg = chunk["error"].get("message", "Unknown provider error")
+                        logger.error(f"[STREAM] Provider error chunk detected: {error_msg}")
+                        yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': f'Provider error: {error_msg}'}}, ensure_ascii=False)}\n\n"
+                        return
+
+                    usage = chunk.get("usage", None)
+                    if usage:
+                        cache_read_input_tokens = 0
+                        prompt_tokens_details = usage.get('prompt_tokens_details', {})
+                        if prompt_tokens_details:
+                            cache_read_input_tokens = prompt_tokens_details.get('cached_tokens', 0)
+                        usage_data = {
+                            'input_tokens': usage.get('prompt_tokens', 0),
+                            'output_tokens': usage.get('completion_tokens', 0),
+                            'cache_read_input_tokens': cache_read_input_tokens
+                        }
+                    choices = chunk.get("choices", [])
+                    if not choices: continue
+                except json.JSONDecodeError:
+                    continue
+
+                choice = choices[0]
+                delta = choice.get("delta", {})
+                finish_reason = choice.get("finish_reason")
+
+                # 1. Handle Thinking/Reasoning
+                if delta.get("reasoning_content"):
+                    if current_block_type != "thinking":
+                        if current_block_type is not None:
+                            yield stop_block(current_block_index)
+                        yield start_block(current_block_index + 1, "thinking")
+                    
+                    yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': current_block_index, 'delta': {'type': 'thinking_delta', 'thinking': delta['reasoning_content']}}, ensure_ascii=False)}\n\n"
+
+                # 2. Handle Text Content
+                elif delta.get("content"):
+                    if current_block_type != "text":
+                        if current_block_type is not None:
+                            yield stop_block(current_block_index)
+                        yield start_block(current_block_index + 1, "text")
+                    
+                    yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': current_block_index, 'delta': {'type': Constants.DELTA_TEXT, 'text': delta['content']}}, ensure_ascii=False)}\n\n"
+
+                # 3. Handle Tool Calls
+                if "tool_calls" in delta and delta["tool_calls"]:
+                    if current_block_type is not None:
+                        yield stop_block(current_block_index)
+                        current_block_type = None
+
+                    for tc_delta in delta["tool_calls"]:
+                        tc_index = tc_delta.get("index", 0)
+                        if tc_index not in current_tool_calls:
+                            current_tool_calls[tc_index] = {"id": None, "name": None, "claude_index": None, "started": False}
+                        
+                        tool_call = current_tool_calls[tc_index]
+                        if tc_delta.get("id"): tool_call["id"] = tc_delta["id"]
+                        function_data = tc_delta.get(Constants.TOOL_FUNCTION, {})
+                        if function_data.get("name"): tool_call["name"] = function_data["name"]
+                        
+                        if tool_call["id"] and tool_call["name"] and not tool_call["started"]:
+                            tool_block_counter += 1
+                            claude_index = max(0, current_block_index) + tool_block_counter
+                            tool_call["claude_index"] = claude_index
+                            tool_call["started"] = True
+                            has_yielded_data = True
+                            logger.info(f"[STREAM] Initializing content block: index={claude_index}, type={Constants.CONTENT_TOOL_USE} ({tool_call['name']})")
+                            yield f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': claude_index, 'content_block': {'type': Constants.CONTENT_TOOL_USE, 'id': tool_call['id'], 'name': tool_call['name'], 'input': {}}}, ensure_ascii=False)}\n\n"
+                        
+                        if "arguments" in function_data and tool_call["started"] and function_data["arguments"] is not None:
+                            yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': tool_call['claude_index'], 'delta': {'type': Constants.DELTA_INPUT_JSON, 'partial_json': function_data['arguments']}}, ensure_ascii=False)}\n\n"
+
+                if finish_reason:
+                    logger.info(f"[STREAM] Finish reason: {finish_reason} (after {chunk_count} chunks)")
+                    final_stop_reason = {
+                        "length": Constants.STOP_MAX_TOKENS,
+                        "tool_calls": Constants.STOP_TOOL_USE,
+                        "function_call": Constants.STOP_TOOL_USE,
+                        "stop": Constants.STOP_END_TURN
+                    }.get(finish_reason, Constants.STOP_END_TURN)
+                    break
+
+            # If we reached here normally (via [DONE] or finish_reason)
+            # and no data was yielded, consider retrying if we have attempts left
+            if not has_yielded_data and retry_count < max_retries - 1:
+                retry_count += 1
+                logger.warning(f"[STREAM] Empty response from provider. Retrying ({retry_count}/{max_retries})...")
+                # Wait a bit before retry to avoid spamming
+                import asyncio
+                await asyncio.sleep(1)
                 continue
+            
+            # If we yielded data or exhausted retries, break the retry loop
+            break
 
-            choice = choices[0]
-            delta = choice.get("delta", {})
-            finish_reason = choice.get("finish_reason")
-
-            # 1. Handle Thinking/Reasoning
-            if delta.get("reasoning_content"):
-                if current_block_type != "thinking":
-                    if current_block_type is not None:
-                        yield stop_block(current_block_index)
-                    yield start_block(current_block_index + 1, "thinking")
-                
-                yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': current_block_index, 'delta': {'type': 'thinking_delta', 'thinking': delta['reasoning_content']}}, ensure_ascii=False)}\n\n"
-
-            # 2. Handle Text Content
-            elif delta.get("content"):
-                if current_block_type != "text":
-                    if current_block_type is not None:
-                        yield stop_block(current_block_index)
-                    yield start_block(current_block_index + 1, "text")
-                
-                yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': current_block_index, 'delta': {'type': Constants.DELTA_TEXT, 'text': delta['content']}}, ensure_ascii=False)}\n\n"
-
-            # 3. Handle Tool Calls
-            if "tool_calls" in delta and delta["tool_calls"]:
-                if current_block_type is not None:
-                    yield stop_block(current_block_index)
-                    current_block_type = None
-
-                for tc_delta in delta["tool_calls"]:
-                    tc_index = tc_delta.get("index", 0)
-                    if tc_index not in current_tool_calls:
-                        current_tool_calls[tc_index] = {"id": None, "name": None, "claude_index": None, "started": False}
-                    
-                    tool_call = current_tool_calls[tc_index]
-                    if tc_delta.get("id"): tool_call["id"] = tc_delta["id"]
-                    function_data = tc_delta.get(Constants.TOOL_FUNCTION, {})
-                    if function_data.get("name"): tool_call["name"] = function_data["name"]
-                    
-                    if tool_call["id"] and tool_call["name"] and not tool_call["started"]:
-                        tool_block_counter += 1
-                        claude_index = max(0, current_block_index) + tool_block_counter
-                        tool_call["claude_index"] = claude_index
-                        tool_call["started"] = True
-                        logger.info(f"[STREAM] Initializing content block: index={claude_index}, type={Constants.CONTENT_TOOL_USE} ({tool_call['name']})")
-                        yield f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': claude_index, 'content_block': {'type': Constants.CONTENT_TOOL_USE, 'id': tool_call['id'], 'name': tool_call['name'], 'input': {}}}, ensure_ascii=False)}\n\n"
-                    
-                    if "arguments" in function_data and tool_call["started"] and function_data["arguments"] is not None:
-                        yield f"event: {Constants.EVENT_CONTENT_BLOCK_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_DELTA, 'index': tool_call['claude_index'], 'delta': {'type': Constants.DELTA_INPUT_JSON, 'partial_json': function_data['arguments']}}, ensure_ascii=False)}\n\n"
-
-            if finish_reason:
-                logger.info(f"[STREAM] Finish reason: {finish_reason} (after {chunk_count} chunks)")
-                final_stop_reason = {
-                    "length": Constants.STOP_MAX_TOKENS,
-                    "tool_calls": Constants.STOP_TOOL_USE,
-                    "function_call": Constants.STOP_TOOL_USE,
-                    "stop": Constants.STOP_END_TURN
-                }.get(finish_reason, Constants.STOP_END_TURN)
-                break
-
-    except HTTPException as e:
-        if e.status_code == 499:
-            logger.info(f"[STREAM] Request {request_id} was cancelled by proxy")
-            yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'cancelled', 'message': 'Request was cancelled by client'}}, ensure_ascii=False)}\n\n"
+        except HTTPException as e:
+            if e.status_code == 499:
+                logger.info(f"[STREAM] Request {request_id} was cancelled by proxy")
+                yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'cancelled', 'message': 'Request was cancelled by client'}}, ensure_ascii=False)}\n\n"
+                return
+            else: raise
+        except Exception as e:
+            logger.error(f"[STREAM] Critical conversion error: {e}", exc_info=True)
+            yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': f'Streaming error: {str(e)}'}}, ensure_ascii=False)}\n\n"
             return
-        else: raise
-    except Exception as e:
-        logger.error(f"[STREAM] Critical conversion error: {e}", exc_info=True)
-        yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': f'Streaming error: {str(e)}'}}, ensure_ascii=False)}\n\n"
 
     if current_block_type is not None:
         yield stop_block(current_block_index)
@@ -385,8 +412,8 @@ async def convert_openai_streaming_to_claude_with_cancellation(
         if tool_data.get("started"):
             yield stop_block(tool_data['claude_index'])
 
-    if current_block_index == -1 and tool_block_counter == 0:
-        logger.warning(f"[STREAM] Warning: Conversion finished (Req: {request_id}) with 0 content blocks created. Yielding safety empty block.")
+    if not has_yielded_data:
+        logger.warning(f"[STREAM] Warning: Conversion finished (Req: {request_id}) after {retry_count} retries with 0 content blocks created. Yielding safety empty block.")
         yield f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': 0, 'content_block': {'type': Constants.CONTENT_TEXT, 'text': ''}}, ensure_ascii=False)}\n\n"
         yield f"event: {Constants.EVENT_CONTENT_BLOCK_STOP}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_STOP, 'index': 0}, ensure_ascii=False)}\n\n"
 

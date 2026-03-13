@@ -89,6 +89,7 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
                         http_request,
                         openai_client,
                         request_id,
+                        openai_request,
                     ),
                     media_type="text/event-stream",
                     headers={
