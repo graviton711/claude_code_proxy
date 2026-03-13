@@ -245,10 +245,10 @@ async def convert_openai_streaming_to_claude_with_cancellation(
     yield f"event: {Constants.EVENT_MESSAGE_START}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_START, 'message': {'id': message_id, 'type': 'message', 'role': Constants.ROLE_ASSISTANT, 'model': original_request.model, 'content': [], 'stop_reason': None, 'stop_sequence': None, 'usage': {'input_tokens': 0, 'output_tokens': 0}}}, ensure_ascii=False)}\n\n"
     yield f"event: {Constants.EVENT_PING}\ndata: {json.dumps({'type': Constants.EVENT_PING}, ensure_ascii=False)}\n\n"
 
-    max_retries = 3
+    # Infinite retries for empty responses as requested
     retry_count = 0
     
-    while retry_count < max_retries:
+    while True: # Retrying until we get data or error
         # State machine for content blocks
         current_block_type = None  # None, "text", or "thinking"
         current_block_index = -1
@@ -388,13 +388,13 @@ async def convert_openai_streaming_to_claude_with_cancellation(
                     break
 
             # If we reached here normally (via [DONE] or finish_reason)
-            # and no data was yielded, consider retrying if we have attempts left
-            if not has_yielded_data and retry_count < max_retries - 1:
+            # and no data was yielded, infinite retry until provider yields something
+            if not has_yielded_data:
                 retry_count += 1
-                logger.warning(f"[STREAM] Empty response from provider. Retrying ({retry_count}/{max_retries})...")
-                # Wait a bit before retry to avoid spamming
+                delay = min(0.5 * (2 ** (retry_count - 1)), 10)  # Exp backoff: 0.5s... up to 10s max
+                logger.warning(f"[STREAM] Empty response from provider. Infinite retry active (attempt {retry_count}) - waiting {delay:.1f}s...")
                 import asyncio
-                await asyncio.sleep(1)
+                await asyncio.sleep(delay)
                 continue
             
             # If we yielded data or exhausted retries, break the retry loop
