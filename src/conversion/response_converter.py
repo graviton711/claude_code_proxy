@@ -132,6 +132,14 @@ async def convert_openai_streaming_to_claude(
             chunk_count += 1
             try:
                 chunk = json.loads(chunk_data)
+                
+                # Check for explicit error fields in provider chunk
+                if "error" in chunk:
+                    error_msg = chunk["error"].get("message", "Unknown provider error")
+                    logger.error(f"[STREAM] Provider error chunk detected: {error_msg}")
+                    yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': f'Provider error: {error_msg}'}}, ensure_ascii=False)}\n\n"
+                    return
+
                 choices = chunk.get("choices", [])
                 if not choices: continue
             except json.JSONDecodeError:
@@ -182,6 +190,7 @@ async def convert_openai_streaming_to_claude(
                         claude_index = max(0, current_block_index) + tool_block_counter
                         tool_call["claude_index"] = claude_index
                         tool_call["started"] = True
+                        logger.info(f"[STREAM] Initializing content block: index={claude_index}, type={Constants.CONTENT_TOOL_USE} ({tool_call['name']})")
                         yield f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': claude_index, 'content_block': {'type': Constants.CONTENT_TOOL_USE, 'id': tool_call['id'], 'name': tool_call['name'], 'input': {}}}, ensure_ascii=False)}\n\n"
                     
                     if "arguments" in function_data and tool_call["started"] and function_data["arguments"] is not None:
@@ -207,7 +216,10 @@ async def convert_openai_streaming_to_claude(
     
     for tool_data in current_tool_calls.values():
         if tool_data.get("started"):
-            yield f"event: {Constants.EVENT_CONTENT_BLOCK_STOP}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_STOP, 'index': tool_data['claude_index']}, ensure_ascii=False)}\n\n"
+            yield stop_block(tool_data['claude_index'])
+
+    if current_block_index == -1 and tool_block_counter == 0:
+        logger.warning(f"[STREAM] Warning: Conversion finished (ID: {message_id}) with 0 content blocks created.")
 
     yield f"event: {Constants.EVENT_MESSAGE_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_DELTA, 'delta': {'stop_reason': final_stop_reason, 'stop_sequence': None}, 'usage': {'input_tokens': 0, 'output_tokens': 0}}, ensure_ascii=False)}\n\n"
     yield f"event: {Constants.EVENT_MESSAGE_STOP}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_STOP}, ensure_ascii=False)}\n\n"
@@ -274,6 +286,14 @@ async def convert_openai_streaming_to_claude_with_cancellation(
             chunk_count += 1
             try:
                 chunk = json.loads(chunk_data)
+
+                # Check for explicit error fields in provider chunk
+                if "error" in chunk:
+                    error_msg = chunk["error"].get("message", "Unknown provider error")
+                    logger.error(f"[STREAM] Provider error chunk detected: {error_msg}")
+                    yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': {'type': 'api_error', 'message': f'Provider error: {error_msg}'}}, ensure_ascii=False)}\n\n"
+                    return
+
                 usage = chunk.get("usage", None)
                 if usage:
                     cache_read_input_tokens = 0
@@ -333,6 +353,7 @@ async def convert_openai_streaming_to_claude_with_cancellation(
                         claude_index = max(0, current_block_index) + tool_block_counter
                         tool_call["claude_index"] = claude_index
                         tool_call["started"] = True
+                        logger.info(f"[STREAM] Initializing content block: index={claude_index}, type={Constants.CONTENT_TOOL_USE} ({tool_call['name']})")
                         yield f"event: {Constants.EVENT_CONTENT_BLOCK_START}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_START, 'index': claude_index, 'content_block': {'type': Constants.CONTENT_TOOL_USE, 'id': tool_call['id'], 'name': tool_call['name'], 'input': {}}}, ensure_ascii=False)}\n\n"
                     
                     if "arguments" in function_data and tool_call["started"] and function_data["arguments"] is not None:
@@ -362,7 +383,10 @@ async def convert_openai_streaming_to_claude_with_cancellation(
         yield stop_block(current_block_index)
     for tool_data in current_tool_calls.values():
         if tool_data.get("started"):
-            yield f"event: {Constants.EVENT_CONTENT_BLOCK_STOP}\ndata: {json.dumps({'type': Constants.EVENT_CONTENT_BLOCK_STOP, 'index': tool_data['claude_index']}, ensure_ascii=False)}\n\n"
+            yield stop_block(tool_data['claude_index'])
+
+    if current_block_index == -1 and tool_block_counter == 0:
+        logger.warning(f"[STREAM] Warning: Conversion finished (Req: {request_id}) with 0 content blocks created.")
 
     yield f"event: {Constants.EVENT_MESSAGE_DELTA}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_DELTA, 'delta': {'stop_reason': final_stop_reason, 'stop_sequence': None}, 'usage': usage_data}, ensure_ascii=False)}\n\n"
     yield f"event: {Constants.EVENT_MESSAGE_STOP}\ndata: {json.dumps({'type': Constants.EVENT_MESSAGE_STOP}, ensure_ascii=False)}\n\n"

@@ -25,17 +25,12 @@ console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(
 
 logging_handlers = [console_handler]
 
-# Add file handler for persistence
-try:
-    file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    file_handler = logging.FileHandler('proxy.log', encoding='utf-8')
-    file_handler.setFormatter(file_formatter)
-    logging_handlers.append(file_handler)
-except Exception:
-    pass
+# Handlers are solely managed by the Orchestrator via stdout/stderr redirection
+# to proxy.log, so we only need a StreamHandler here for the console view.
+logging_handlers = [console_handler]
 
 # Clear existing handlers if any and add new ones
-logger.handlers = []
+logger.handlers.clear()
 truncate_filter = TruncateFilter()
 for handler in logging_handlers:
     handler.addFilter(truncate_filter)
