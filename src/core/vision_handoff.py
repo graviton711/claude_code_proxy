@@ -57,6 +57,9 @@ def _extract_text_blocks(content_list) -> str:
     return "\n".join(text_parts).strip()
 
 
+from src.core.vision_cache import vision_cache
+
+
 async def apply_vision_handoff(openai_request: dict, openai_client, config, logger) -> dict:
     """
     For user messages that contain image_url content, call vision model first,
@@ -72,30 +75,42 @@ async def apply_vision_handoff(openai_request: dict, openai_client, config, logg
         if not _message_has_image(msg):
             continue
 
-        # Lazy deepcopy of the specific message being handled
-        msg = copy.deepcopy(msg)
-        source_content = msg.get("content")
+        # Create a deepcopy of the message content to avoid modifying the original request
+        source_content = copy.deepcopy(msg.get("content"))
 
-        vision_request = {
-            "model": config.vision_model,
-            "messages": [
-                {"role": "system", "content": VISION_SYSTEM_PROMPT},
-                {"role": "user", "content": source_content},
-            ],
-            "max_tokens": config.vision_handoff_max_tokens,
-            "temperature": 0.1,
-            "stream": False,
-        }
+        # Check cache first
+        cached_report = vision_cache.get_report(source_content)
+        if cached_report:
+            logger.info(f"Using cached vision report for user message index={idx}")
+            vision_report = cached_report
+        else:
+            vision_request = {
+                "model": config.vision_model,
+                "messages": [
+                    {"role": "system", "content": VISION_SYSTEM_PROMPT},
+                    {"role": "user", "content": source_content},
+                ],
+                "max_tokens": config.vision_handoff_max_tokens,
+                "temperature": 0.1,
+                "stream": False,
+            }
 
-        vision_response = await openai_client.create_chat_completion(vision_request)
-        vision_report = _extract_text_from_vision_response(vision_response)
+            vision_response = await openai_client.create_chat_completion(vision_request)
+            vision_report = _extract_text_from_vision_response(vision_response)
+            
+            # Store in cache
+            vision_cache.set_report(source_content, vision_report)
+            logger.info(f"Vision handoff applied and cached for user message index={idx}")
+
         original_user_text = _extract_text_blocks(source_content)
 
         combined = "Image Analysis Report:\n" + (vision_report or "(no details extracted)")
         if original_user_text:
             combined += "\n\nOriginal User Text:\n" + original_user_text
 
-        routed["messages"][idx]["content"] = combined
-        logger.info(f"Vision handoff applied for user message index={idx}")
+        # Replace the message in the shallow-copied list with a modified copy
+        msg_copy = copy.deepcopy(msg)
+        msg_copy["content"] = combined
+        messages[idx] = msg_copy
 
     return routed
