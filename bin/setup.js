@@ -303,7 +303,8 @@ async function main() {
                 try {
                     // Pull and down first for robustness
                     execSync('docker compose down', { cwd: installDir, stdio: 'pipe' });
-                    execSync('docker compose up -d', { cwd: installDir, stdio: 'pipe' });
+                    // ONLY start searxng service to avoid port 8082 conflicts
+                    execSync('docker compose up -d searxng', { cwd: installDir, stdio: 'pipe' });
                     dockerSpinner.succeed('Searxng is running.');
 
                     /* ──────────── MCP Registration ──────────── */

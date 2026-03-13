@@ -139,6 +139,48 @@ function loadEnvFile(installDir) {
     return vars;
 }
 
+/**
+ * Ensure Searxng is running if enabled in .env
+ */
+async function ensureSearxng(installDir) {
+    const envVars = loadEnvFile(installDir);
+    if (envVars['ENABLE_SEARXNG'] !== 'true') return;
+
+    try {
+        // Check if docker is available
+        execSync('docker --version', { stdio: 'ignore' });
+        
+        // Check if docker daemon is running
+        try {
+            execSync('docker info', { stdio: 'ignore' });
+        } catch {
+            log(pc.yellow('Docker daemon not running. Searxng auto-start skipped.'));
+            return;
+        }
+
+        // Check if searxng container is already running
+        const status = execSync('docker inspect -f "{{.State.Running}}" searxng', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+        if (status === 'true') return;
+    } catch {
+        // Container doesn't exist or docker command failed
+    }
+
+    const ora = (await import('ora')).default;
+    const spinner = ora({
+        text: 'Starting Searxng search engine...',
+        prefixText: ` ${pc.gray('│')}`,
+        color: 'blue'
+    }).start();
+
+    try {
+        // ONLY start searxng service to avoid port 8082 conflicts with the python/native proxy
+        execSync('docker compose up -d searxng', { cwd: installDir, stdio: 'ignore' });
+        spinner.succeed('Searxng search engine is online.');
+    } catch (err) {
+        spinner.fail('Failed to start Searxng. Search features may be unavailable.');
+    }
+}
+
 async function startProxy(installDir) {
     const existingPid = await getPortPID(DEFAULT_PORT);
     if (existingPid) {
@@ -285,7 +327,7 @@ async function handleUninstall() {
 }
 
 async function run() {
-    const installDir = getInstallDir();
+    let installDir = getInstallDir();
 
     if (process.argv.includes('--uninstall')) {
         await handleUninstall();
@@ -304,11 +346,16 @@ async function run() {
 
     try {
         await ensureConfig(installDir);
+        // CRITICAL FIX: Re-fetch installDir in case setup.js changed/created the location mapping file
+        installDir = getInstallDir();
     } catch (err) {
         // Setup cancelled or failed
         if (isInteractive) drawFooter();
         process.exit(1);
     }
+
+    // Ensure dependent services (Searxng) are healthy
+    await ensureSearxng(installDir);
 
     await startProxy(installDir);
     registerSession(installDir);

@@ -43,10 +43,8 @@ class Config:
         """Basic API key validation"""
         if not self.openai_api_key:
             return False
-        # Basic format check for OpenAI API keys
-        if not self.openai_api_key.startswith('sk-'):
-            return False
-        return True
+        # Remove restrictive prefix check to support varied providers (iFlow, etc.)
+        return len(self.openai_api_key) > 0
         
     def validate_client_api_key(self, client_api_key):
         """Validate client's Anthropic API key"""
